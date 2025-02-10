@@ -64,7 +64,7 @@ data:
     train_path: datasets/conll_2003/train.pkl
     val_path: datasets/conll_2003/val.pkl
     test_path: datasets/conll_2003/test.pkl
-    batch_size: 1
+    batch_size: 32
     # fill_context: False
     remove_o: False
     o_class_mod: 1
