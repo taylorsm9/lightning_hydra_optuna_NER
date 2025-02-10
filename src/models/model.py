@@ -169,7 +169,7 @@ class EncoderNERModel(LightningModule):
                  batch_size=self.batch_size, sync_dist=True)
 
     # def on_train_epoch_end(self, outputs=None):
-    #     # comment this full method out along with training_step logging if not looking for problems
+    #     # Comment this full method out along with training_step logging if not looking for problems
     #     # Compute per-class metrics
     #     f1_per_class = self.train_f1.compute()
     #     precision_vals = self.train_precision.compute()

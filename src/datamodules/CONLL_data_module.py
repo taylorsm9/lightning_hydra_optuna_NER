@@ -24,14 +24,14 @@ from torch.utils.data import DataLoader
 
 
 class CONLLDataModule(LightningDataModule):
-    def __init__(self, train_path, val_path, test_path, batch_size, fill_context, num_labels, IOB, remove_o,
-                 o_class_mod, effective_sample_weights, beta, model_class):
+    def __init__(self, train_path, val_path, test_path, batch_size, num_labels, IOB, remove_o,
+                 o_class_mod, effective_sample_weights, beta, model_class, max_length):
         super().__init__()
         self.train_path = train_path
         self.val_path = val_path
         self.test_path = test_path
         self.batch_size = batch_size
-        self.fill_context = fill_context
+        # self.fill_context = fill_context
         self.remove_o = remove_o
         self.IOB = IOB
         self.num_labels = num_labels + ((num_labels - 1) * self.IOB)
@@ -41,18 +41,18 @@ class CONLLDataModule(LightningDataModule):
         self.o_class_mod = o_class_mod # ECW -130 epoch: 2 increased f1 by 2. 10 epoch schedule:16=8>2>32
         self.effective_sample_weights = effective_sample_weights
         self.model_class = model_class
+        self.max_length = max_length
 
     def prepare_data(self):
 
         if self.model_class == "DeBERTaV3LargeModel":
-            self.tokenizer = DebertaV2Tokenizer.from_pretrained('microsoft/deberta-v3-large')
+            self.tokenizer = AutoTokenizer.from_pretrained("microsoft/deberta-v3-large", use_fast=True)
         elif self.model_class == "ModernBertLargeModel":
-            self.tokenizer = AutoTokenizer.from_pretrained('answerdotai/ModernBERT-large')
+            self.tokenizer = AutoTokenizer.from_pretrained('answerdotai/ModernBERT-large', use_fast=True)
 
         if self.IOB:
             label_idx = {'O': 0, 'B-PER': 1, 'I-PER': 2, 'B-ORG': 3, 'I-ORG': 4, 'B-LOC': 5, 'I-LOC': 6, 'B-MISC': 7,
                          'I-MISC': 8}
-
         else:
             label_idx = {'O': 0, 'PER': 1, 'ORG': 2, 'LOC': 3, 'MISC': 4}
 
@@ -69,10 +69,10 @@ class CONLLDataModule(LightningDataModule):
             self.class_weights[0] = self.class_weights[0]/self.o_class_mod
 
 
-        self.train = make_tensor(self.train_path, label_idx, self.IOB, self.tokenizer,
+        self.train = make_tensor(self.train_path, label_idx, self.IOB, self.tokenizer, self.max_length,
                                        remove_o=self.remove_o)
-        self.val = make_tensor(self.val_path, label_idx, self.IOB, self.tokenizer)
-        self.test = make_tensor(self.test_path, label_idx, self.IOB, self.tokenizer)
+        self.val = make_tensor(self.val_path, label_idx, self.IOB, self.tokenizer, self.max_length,)
+        self.test = make_tensor(self.test_path, label_idx, self.IOB, self.tokenizer, self.max_length,)
 
     def train_dataloader(self):
         return DataLoader(self.train, batch_size=self.batch_size, shuffle=True,
