@@ -1,0 +1,2 @@
+.venv*
+bash_scripts/conll/conll_baseline.sh
