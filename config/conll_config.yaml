@@ -11,10 +11,12 @@ defaults:
 # Hydra-specific configs
 hydra:
   run:
-    dir: ${paths.log_dir}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    dir: logs/${now:%Y-%m-%d}/${now:%H-%M-%S}
   sweep:
-    dir: ${paths.log_dir}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    dir: logs/multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
     subdir: ${hydra.job.num}
+  job:
+    num: 0  # Default job number
 
 # Global paths config
 paths:
