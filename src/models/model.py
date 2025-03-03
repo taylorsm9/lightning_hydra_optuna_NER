@@ -8,7 +8,8 @@ import torch.nn as nn
 import pandas as pd
 
 import wandb
-import matplotlib.pyplot as plt
+import matplotlib.pyplot
+matplotlib.use('Agg')
 
 
 class DeBERTaV3LargeModel(nn.Module):
@@ -228,7 +229,7 @@ class EncoderNERModel(LightningModule):
         fig, ax = self.val_confusion_matrix.plot(add_text=False)
         wandb.log({f'val_confusion_matrix': [wandb.Image(fig)]})
         # self.log_confusion_matrix(fig, ax, 'valid')
-        plt.close(fig)
+        matplotlib.pyplot.close(fig)
         self.val_f1.reset()
         self.val_f1_micro.reset()
         self.val_confusion_matrix.reset()
@@ -278,7 +279,7 @@ class EncoderNERModel(LightningModule):
         # log confusion matrix for wandb heatmap
         fig, ax = self.test_confusion_matrix.plot(add_text=False)
         wandb.log({f'test_confusion_matrix': [wandb.Image(fig)]})
-        plt.close(fig)
+        matplotlib.pyplot.close(fig)
 
         # separately, log confusion matrix to a csv to see exact normalized values if need be
         # removed because we never needed this
