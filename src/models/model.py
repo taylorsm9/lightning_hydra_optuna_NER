@@ -243,6 +243,8 @@ class EncoderNERModel(LightningModule):
         active_labels = labels.view(-1)[attention_mask.view(-1) == 1]
         active_preds = preds.view(-1)[attention_mask.view(-1) == 1]
         active_input_ids = input_ids.view(-1)[attention_mask.view(-1) == 1]
+        active_logits = logits.view(-1, logits.size(-1))[attention_mask.view(-1) == 1] # For postprocessing
+        active_probs = torch.nn.functional.softmax(active_logits, dim=-1) # For postprocessing
 
         self.test_f1.update(active_preds, active_labels)
         self.test_f1_micro.update(active_preds, active_labels)
@@ -253,8 +255,10 @@ class EncoderNERModel(LightningModule):
 
         # Save active input IDs, predictions, and labels for detokenization and results examination
         self.test_data.extend(
-            zip(active_input_ids.cpu().tolist(), active_preds.cpu().tolist(), active_labels.cpu().tolist()))
-
+            zip(active_input_ids.cpu().tolist(),
+                active_preds.cpu().tolist(),
+                active_labels.cpu().tolist(),
+                active_probs.cpu().tolist())) # For postprocessing
     def on_test_epoch_end(self):
         # Compute per-class F1 scores
         f1_per_class = self.test_f1.compute()
@@ -291,7 +295,8 @@ class EncoderNERModel(LightningModule):
         self.test_confusion_matrix.reset()
 
         if self.test_data:  # Ensure there's data to save
-            df = pd.DataFrame(self.test_data, columns=['InputID', 'Prediction', 'Label'])
+            df = pd.DataFrame(self.test_data, columns=['InputID', 'Prediction', 'Label', 'Probabilities'])
+            num_classes = len(df['Probabilities'].iloc[0])
             df.to_pickle(self.pred_output_path)
             self.test_data.clear()  # Clear the list
 
