@@ -9,7 +9,7 @@ import pandas as pd
 
 import wandb
 import matplotlib.pyplot as plt
-
+from deepspeed.ops.adam import DeepSpeedCPUAdam
 
 class DeBERTaV3LargeModel(nn.Module):
     def __init__(self, num_labels, hidden_dropout_prob=0.5, attention_probs_dropout_prob=0.1):
@@ -119,14 +119,16 @@ class EncoderNERModel(LightningModule):
                                              label_smoothing=0.1)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.trainer.model.parameters(), lr=self.starting_lr,
-                                      weight_decay=self.weight_decay, )
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.max_lr,
+        optimizer = DeepSpeedCPUAdam(self.trainer.model.parameters(),
+                                     lr=self.starting_lr,
+                                     weight_decay=self.weight_decay)
+
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
+                                                        max_lr=self.max_lr,
                                                         total_steps=self.trainer.estimated_stepping_batches,
                                                         pct_start=self.pct_start)
-        # return optimizer
-        return [optimizer], [{'scheduler': scheduler, "interval": "step"}]
 
+        return [optimizer], [{'scheduler': scheduler, "interval": "step"}]
     def forward(self, input_ids, attention_mask):
         model_class: ModernBertLargeModel #DeBERTaV3LargeModel,ModernBertLargeModel
         logits = self.model(input_ids, attention_mask)
@@ -215,14 +217,14 @@ class EncoderNERModel(LightningModule):
         # Log F1 scores
         avg_f1 = f1_per_class.mean()
 
-        self.log('val_avg_f1', avg_f1, on_epoch=True, prog_bar=True)
-        self.log('valid_f1', self.val_f1_micro.compute(), on_epoch=True, prog_bar=True)
+        self.log('val_avg_f1', avg_f1, on_epoch=True, prog_bar=True, sync_dist=True)
+        self.log('valid_f1', self.val_f1_micro.compute(), on_epoch=True, prog_bar=True, sync_dist=True)
 
         # Log per class f1, precision, recall
         for i, (f1_score, prec, rec) in enumerate(zip(f1_per_class, precision_vals, recall_vals)):
-            self.log(f'val_f1_class_{i}', f1_score, on_epoch=True, prog_bar=True, logger=True)
-            self.log(f'val_precision_class_{i}', prec, on_step=False, on_epoch=True, prog_bar=True)
-            self.log(f'val_recall_class_{i}', rec, on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'val_f1_class_{i}', f1_score, on_epoch=True, prog_bar=False, logger=True, sync_dist=True)
+            self.log(f'val_precision_class_{i}', prec, on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
+            self.log(f'val_recall_class_{i}', rec, on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
 
         # Compute and log confusion matrix at the end of epoch
         fig, ax = self.val_confusion_matrix.plot(add_text=False)
@@ -262,14 +264,14 @@ class EncoderNERModel(LightningModule):
         recall_vals = self.test_recall.compute()
 
         # Log scores
-        self.log('test_avg_f1', f1_per_class.mean(), on_epoch=True, prog_bar=True, logger=True)
-        self.log('test_f1_micro', self.test_f1_micro.compute(), on_epoch=True, prog_bar=True, logger=True)
+        self.log('test_avg_f1', f1_per_class.mean(), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log('test_f1_micro', self.test_f1_micro.compute(), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
         # Log per class F1 score, precision, and recall
         for i, (f1_score, prec, rec) in enumerate(zip(f1_per_class, precision_vals, recall_vals)):
-            self.log(f'test_f1_class_{i}', f1_score, on_epoch=True, prog_bar=True, logger=True)
-            self.log(f'test_precision_class_{i}', prec, on_step=False, on_epoch=True, prog_bar=True)
-            self.log(f'test_recall_class_{i}', rec, on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'test_f1_class_{i}', f1_score, on_epoch=True, prog_bar=False, logger=True, sync_dist=True)
+            self.log(f'test_precision_class_{i}', prec, on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
+            self.log(f'test_recall_class_{i}', rec, on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
 
         # log confusion matrix for wandb heatmap
         fig, ax = self.test_confusion_matrix.plot(add_text=False)
