@@ -110,6 +110,7 @@ class EncoderNERModel(LightningModule):
         self.test_confusion_matrix = torchmetrics.ConfusionMatrix(num_classes=num_labels, task="multiclass",
                                                                   normalize='true')
 
+
     def setup(self, stage=None):
         self.class_weights = self.trainer.datamodule.class_weights.clone().detach()
         print("class weights:")
@@ -201,11 +202,21 @@ class EncoderNERModel(LightningModule):
 
         # Update validation metrics
         preds = torch.argmax(logits, dim=-1)
-        self.val_f1(preds, labels)
-        self.val_f1_micro(preds, labels)
-        self.val_precision(preds, labels)
-        self.val_recall(preds, labels)
-        self.val_confusion_matrix.update(preds, labels)
+
+        # Create flattened masks to identify real tokens
+        flat_attention_mask = attention_mask.view(-1) == 1
+
+        # Apply the mask to get only the active tokens
+        active_labels = labels.view(-1)[flat_attention_mask]
+        active_preds = preds.view(-1)[flat_attention_mask]
+
+        # Update metrics with the active tokens only
+        self.val_f1(active_preds, active_labels)
+        self.val_f1_micro(active_preds, active_labels)
+        self.val_precision(active_preds, active_labels)
+        self.val_recall(active_preds, active_labels)
+        self.val_confusion_matrix.update(active_preds, active_labels)
+
         return {"valid_loss": val_loss}
 
     def on_validation_epoch_end(self):
@@ -242,20 +253,25 @@ class EncoderNERModel(LightningModule):
         logits = self(input_ids, attention_mask)
         preds = torch.argmax(logits, dim=-1)
 
-        active_labels = labels.view(-1)[attention_mask.view(-1) == 1]
-        active_preds = preds.view(-1)[attention_mask.view(-1) == 1]
-        active_input_ids = input_ids.view(-1)[attention_mask.view(-1) == 1]
+        # Create flattened masks to identify real tokens
+        flat_attention_mask = attention_mask.view(-1) == 1
 
+        # Apply the mask to get only the active tokens
+        active_labels = labels.view(-1)[flat_attention_mask]
+        active_preds = preds.view(-1)[flat_attention_mask]
+        active_input_ids = input_ids.view(-1)[flat_attention_mask]
+
+        # Update metrics with the active tokens only
         self.test_f1.update(active_preds, active_labels)
         self.test_f1_micro.update(active_preds, active_labels)
         self.test_precision.update(active_preds, active_labels)
         self.test_recall.update(active_preds, active_labels)
-
         self.test_confusion_matrix.update(active_preds, active_labels)
 
         # Save active input IDs, predictions, and labels for detokenization and results examination
         self.test_data.extend(
             zip(active_input_ids.cpu().tolist(), active_preds.cpu().tolist(), active_labels.cpu().tolist()))
+
 
     def on_test_epoch_end(self):
         # Compute per-class F1 scores

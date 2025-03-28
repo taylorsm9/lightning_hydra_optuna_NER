@@ -192,33 +192,23 @@ def get_label_idx(train_path, IOB, label_idx, label_column='Label'):
 
 def create_single_tensor(df):
     """
-    Creates a TensorDataset from tokenization data in a dictionary.
-
-    Args:
-        dict (dict): Contains 'token_ids', 'attention_masks', 'labels'.
-
-    Returns:
-        TensorDataset: Dataset with tokenization data.
+    Creates a list of tensor tuples from tokenization data with variable lengths.
     """
-    token_ids = torch.tensor(df["token_ids"].tolist(), dtype=torch.long)
-    attention_masks = torch.ByteTensor(df["attention_masks"].tolist())
-    labels = torch.tensor(df["labels"].tolist(), dtype=torch.long)
+    dataset = []
+    for i in range(len(df)):
+        token_ids = torch.tensor(df.iloc[i]["token_ids"], dtype=torch.long)
+        attention_masks = torch.tensor(df.iloc[i]["attention_masks"], dtype=torch.uint8)
+        labels = torch.tensor(df.iloc[i]["labels"], dtype=torch.long)
 
-    # Optionally, check that the first dimension (number of examples) is the same for all tensors
-    assert token_ids.size(0) == attention_masks.size(0) == labels.size(0), "Size mismatch between tensors"
+        dataset.append((token_ids, attention_masks, labels))
 
-    return TensorDataset(token_ids, attention_masks, labels)
+    return dataset
+
 
 def tokenize_dataframe(df, label_idx, tokenizer, max_length) -> pd.DataFrame:
     """
-    Takes a dataframe saved in a `.pkl` file and converts it into a tensor that can be used for train/dev/test/learning
-        Args:
-            data_path (str): filepath for the saved `.pkl` file, containing a "Word" and "Label" column.
-            label_idx (dict): a dictionary used to encode labels into integers, required for returning a tensor. Example: {'0': 0, 'B-ORG': 1, ...}
-            # TODO IOB (0 or 1): whether or not `B-` and `I-` prefixes to labels should be removed
-            tokenizer (transformers.AutoTokenizer): the huggingface tokenizer that will be used on the "Word" column
-            # TODO remove_o=False (Bool): whether or not samples with only `O` labels should be removed from the data
-            testmode=False (Bool): If false, make_tensor will return a tensor ready to be used for training. If true, make_tensor will return a dataframe of 20 samples, so an inspector can review or validate functionality with ease.
+    Takes a dataframe and tokenizes the text without padding to fixed length.
+    Returns a DataFrame with tokenization results.
     """
 
     def expand_encode_labels(labels, offset_mapping):
@@ -238,21 +228,37 @@ def tokenize_dataframe(df, label_idx, tokenizer, max_length) -> pd.DataFrame:
             # Move to the next word label only at new word boundaries
 
         return expanded_labels
+    token_ids_list = []
+    attention_masks_list = []
+    labels_list = []
 
-    def tokenize_row(tokenizer, row, max_length):
-        encoded = tokenizer(row["Word"], is_split_into_words=True, padding="max_length", truncation=True, max_length=512, return_offsets_mapping=True)
+    for _, row in df.iterrows():
+        encoded = tokenizer(
+            row["Word"],
+            is_split_into_words=True,
+            truncation=True,
+            max_length=max_length,  # Max length for truncation only, padding is dynamic
+            return_offsets_mapping=True
+        )
 
-        # print a row that has mismatched sequence lengths for tokenization, offset mapping, and attention mask
+        # Check for mismatched lengths
         if not (len(encoded["input_ids"]) == len(encoded["attention_mask"]) == len(encoded["offset_mapping"])):
             print(row["Word"])
 
-        return encoded["input_ids"], encoded["attention_mask"], expand_encode_labels(row["Label"],
-                                                                                     encoded["offset_mapping"])
+        # Use existing expand_encode_labels function to map word labels to token labels
+        labels = expand_encode_labels(row["Label"], encoded["offset_mapping"])
 
+        token_ids_list.append(encoded["input_ids"])
+        attention_masks_list.append(encoded["attention_mask"])
+        labels_list.append(labels)
 
-    df[["token_ids", "attention_masks", "labels"]] = df.apply(lambda x: pd.Series(tokenize_row(tokenizer, x, max_length)), axis=1)
+    # Create a new DataFrame with the tokenized data
+    result_df = df.copy()
+    result_df["token_ids"] = token_ids_list
+    result_df["attention_masks"] = attention_masks_list
+    result_df["labels"] = labels_list
 
-    return df
+    return result_df
 
 def make_tensor(data_path, label_idx, IOB, tokenizer, max_length, remove_o=False):
     """

@@ -74,17 +74,28 @@ class CONLLDataModule(LightningDataModule):
         self.val = make_tensor(self.val_path, label_idx, self.IOB, self.tokenizer, self.max_length,)
         self.test = make_tensor(self.test_path, label_idx, self.IOB, self.tokenizer, self.max_length,)
 
+    def collate_fn(self, batch):
+        # Unpack the batch
+        input_ids, attention_masks, labels = zip(*batch)
+
+        # Pad sequences to the maximum length in this batch
+        # pad_sequence handles variable length sequences by padding to the max length in the batch
+        padded_input_ids = torch.nn.utils.rnn.pad_sequence(input_ids, batch_first=True, padding_value=0)
+        padded_attention_masks = torch.nn.utils.rnn.pad_sequence(attention_masks, batch_first=True, padding_value=0)
+        padded_labels = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True, padding_value=-100)
+
+        return padded_input_ids, padded_attention_masks, padded_labels
     def train_dataloader(self):
         return DataLoader(self.train, batch_size=self.batch_size, shuffle=True,
                           num_workers=8, prefetch_factor=2, drop_last=True,
-                          persistent_workers=True, pin_memory=True, )
+                          persistent_workers=True, pin_memory=True, collate_fn=self.collate_fn)
 
     def val_dataloader(self):
         return DataLoader(self.val, batch_size=self.batch_size,
                           num_workers=8, prefetch_factor=2, drop_last=True,
-                          persistent_workers=True, pin_memory=True, )
+                          persistent_workers=True, pin_memory=True, collate_fn=self.collate_fn)
 
     def test_dataloader(self):
         return DataLoader(self.test, batch_size=self.batch_size,
                           num_workers=8, prefetch_factor=2, drop_last=True,
-                          persistent_workers=True, pin_memory=True, )
+                          persistent_workers=True, pin_memory=True, collate_fn=self.collate_fn)
