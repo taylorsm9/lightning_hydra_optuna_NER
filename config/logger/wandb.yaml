@@ -1,6 +1,6 @@
 _target_: lightning.pytorch.loggers.WandbLogger
 
-project: conll
+project: gutbrain
 log_model: false
 save_dir: ${paths.log_dir}
-name: conll
+name: gutbrain
