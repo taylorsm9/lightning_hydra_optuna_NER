@@ -1,0 +1,27 @@
+defaults:
+  - _self_
+  - model: conll_ner
+  - datamodule: conll
+  - trainer: default
+  - callbacks: default
+  - logger: wandb
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+# Hydra-specific configs
+hydra:
+  run:
+    dir: logs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: logs/multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+  job:
+    num: 0  # Default job number
+
+# Global paths config
+paths:
+  root_dir: ${hydra:runtime.cwd}
+  data_dir: ${paths.root_dir}/datasets/gutbrain
+  log_dir: ${paths.root_dir}/logs
+  output_dir: ${paths.root_dir}/outputs
+  checkpoint_dir: ${paths.log_dir}/checkpoints

@@ -18,7 +18,7 @@ def build_callbacks(callbacks_cfg: DictConfig) -> List:
     return callbacks
 
 
-@hydra.main(version_base=None, config_path="config", config_name="conll_config")
+@hydra.main(version_base=None, config_path="config", config_name="gutbrain_config")
 def train(cfg: DictConfig) -> Optional[float]:
 
     # Set seed
@@ -40,7 +40,7 @@ def train(cfg: DictConfig) -> Optional[float]:
     # Train
     trainer.fit(model=model, datamodule=datamodule)
 
-    # Get micro f1 for hyperparameter optimization
+    # Get macro f1 for hyperparameter tuning with optuna
     score = trainer.callback_metrics.get("val_avg_f1", None)
 
     return score
