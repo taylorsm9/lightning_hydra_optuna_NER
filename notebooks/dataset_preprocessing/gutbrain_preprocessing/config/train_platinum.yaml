@@ -1,0 +1,3 @@
+dataset_path: data/gutbrainie2025/Articles/json_format/articles_train_platinum.json
+labels_path: data/gutbrainie2025/Annotations/Train/platinum_quality/json_format/train_platinum.json
+save_path: data/gutbrainie2025/train/train_platinum.pkl
