@@ -13,3 +13,4 @@ pct_start: 0.3
 flooding_val: 0.1
 pred_output_path: ${paths.output_dir}/test_preds/test_data.pkl
 confusion_matrix_path: ${paths.output_dir}/test_preds/confusion_matrix.csv
+use_gradient_checkpointing: false
