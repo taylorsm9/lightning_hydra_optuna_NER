@@ -1,0 +1,17 @@
+# data is downloaded by scripts/get_conll.py and never committed
+datasets/
+# run outputs
+logs/
+outputs/
+multirun/
+wandb/
+lightning_logs/
+*.ckpt
+*.pkl
+# environments / editors
+.venv/
+venv/
+.idea/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
