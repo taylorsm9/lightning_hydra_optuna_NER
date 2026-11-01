@@ -89,25 +89,25 @@ class EncoderNERModel(LightningModule):
 
         # Metrics for training
         # these can be commented out if not troubleshooting performance
-        # self.train_f1 = torchmetrics.F1Score(num_classes=num_labels, task="multiclass", average=None)
-        # self.train_f1_micro = torchmetrics.F1Score(num_classes=num_labels, task="multiclass", average='micro')
-        # self.train_precision = torchmetrics.Precision(num_classes=num_labels, task="multiclass", average=None)
-        # self.train_recall = torchmetrics.Recall(num_classes=num_labels, task="multiclass", average=None)
+        # self.train_f1 = torchmetrics.F1Score(num_classes=self.num_labels, task="multiclass", average=None)
+        # self.train_f1_micro = torchmetrics.F1Score(num_classes=self.num_labels, task="multiclass", average='micro')
+        # self.train_precision = torchmetrics.Precision(num_classes=self.num_labels, task="multiclass", average=None)
+        # self.train_recall = torchmetrics.Recall(num_classes=self.num_labels, task="multiclass", average=None)
 
         # Metrics for validation
-        self.val_f1 = torchmetrics.F1Score(num_classes=num_labels, task="multiclass", average=None)
-        self.val_f1_micro = torchmetrics.F1Score(num_classes=num_labels, task="multiclass", average='micro')
-        self.val_precision = torchmetrics.Precision(num_classes=num_labels, task="multiclass", average=None)
-        self.val_recall = torchmetrics.Recall(num_classes=num_labels, task="multiclass", average=None)
-        self.val_confusion_matrix = torchmetrics.ConfusionMatrix(num_classes=num_labels, task="multiclass",
+        self.val_f1 = torchmetrics.F1Score(num_classes=self.num_labels, task="multiclass", average=None)
+        self.val_f1_micro = torchmetrics.F1Score(num_classes=self.num_labels, task="multiclass", average='micro')
+        self.val_precision = torchmetrics.Precision(num_classes=self.num_labels, task="multiclass", average=None)
+        self.val_recall = torchmetrics.Recall(num_classes=self.num_labels, task="multiclass", average=None)
+        self.val_confusion_matrix = torchmetrics.ConfusionMatrix(num_classes=self.num_labels, task="multiclass",
                                                                  normalize='true')
 
         # Metrics for testing
-        self.test_f1 = torchmetrics.F1Score(num_classes=num_labels, task="multiclass", average=None)
-        self.test_f1_micro = torchmetrics.F1Score(num_classes=num_labels, task="multiclass", average='micro')
-        self.test_precision = torchmetrics.Precision(num_classes=num_labels, task="multiclass", average=None)
-        self.test_recall = torchmetrics.Recall(num_classes=num_labels, task="multiclass", average=None)
-        self.test_confusion_matrix = torchmetrics.ConfusionMatrix(num_classes=num_labels, task="multiclass",
+        self.test_f1 = torchmetrics.F1Score(num_classes=self.num_labels, task="multiclass", average=None)
+        self.test_f1_micro = torchmetrics.F1Score(num_classes=self.num_labels, task="multiclass", average='micro')
+        self.test_precision = torchmetrics.Precision(num_classes=self.num_labels, task="multiclass", average=None)
+        self.test_recall = torchmetrics.Recall(num_classes=self.num_labels, task="multiclass", average=None)
+        self.test_confusion_matrix = torchmetrics.ConfusionMatrix(num_classes=self.num_labels, task="multiclass",
                                                                   normalize='true')
 
     def setup(self, stage=None):
