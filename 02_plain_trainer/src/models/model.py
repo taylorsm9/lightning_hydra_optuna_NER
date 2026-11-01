@@ -1,6 +1,7 @@
 from lightning.pytorch import LightningModule, callbacks
 from transformers import AutoConfig, DebertaV2Model, ModernBertConfig, ModernBertModel
 
+import os
 import torchmetrics
 
 import torch
@@ -292,6 +293,8 @@ class EncoderNERModel(LightningModule):
 
         if self.test_data:  # Ensure there's data to save
             df = pd.DataFrame(self.test_data, columns=['InputID', 'Prediction', 'Label'])
+            # test_preds/ used to be committed with predictions in it; create it on a fresh clone
+            os.makedirs(os.path.dirname(self.pred_output_path) or ".", exist_ok=True)
             df.to_pickle(self.pred_output_path)
             self.test_data.clear()  # Clear the list
 
