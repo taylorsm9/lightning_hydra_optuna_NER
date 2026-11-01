@@ -1,0 +1,13 @@
+model_checkpoint:
+  _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  monitor: val_f1_micro_no_o
+  mode: max
+  save_top_k: 1
+  dirpath: ${paths.checkpoint_dir}
+  save_last: true
+  every_n_epochs: 1
+  filename: "{epoch}-{step}-{val_avg_f1:.2f}-{train_loss:.2f}"
+
+lr_monitor:
+  _target_: lightning.pytorch.callbacks.LearningRateMonitor
+  logging_interval: step

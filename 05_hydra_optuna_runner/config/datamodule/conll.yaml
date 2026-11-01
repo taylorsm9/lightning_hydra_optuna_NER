@@ -1,0 +1,14 @@
+_target_: src.datamodules.CONLL_data_module.CONLLDataModule
+
+train_path: ${paths.data_dir}/train.pkl
+val_path: ${paths.data_dir}/val.pkl
+test_path: ${paths.data_dir}/test.pkl
+batch_size: 512
+remove_o: false
+o_class_mod: 1
+IOB: 0
+num_labels: 5
+effective_sample_weights: false
+beta: 0.99
+model_class: ModernBertLargeModel
+max_length: 8000
