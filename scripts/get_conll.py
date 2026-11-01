@@ -40,7 +40,11 @@ def conll_to_df(conll_path):
     data = data.dropna()
 
     grouped = data.groupby("Sentence #").agg({"Label": list, "Start": list, "End": list, "Word": list})
-    return grouped.reset_index()[["Word", "Label"]]
+    df = grouped.reset_index()[["Word", "Label"]]
+    # plain object column labels: pandas 3 would otherwise store them as a pyarrow-backed string dtype,
+    # and the pickle would not load under pandas 2 (which the project used) without pyarrow installed
+    df.columns = pd.Index(["Word", "Label"], dtype=object)
+    return df
 
 
 def main():
