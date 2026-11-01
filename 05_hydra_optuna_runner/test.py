@@ -48,7 +48,7 @@ def _load_model(cfg: DictConfig, ckpt: Path):
         return model, None
 
 
-@hydra.main(version_base=None, config_path="config", config_name="gutbrain_config")
+@hydra.main(version_base=None, config_path="config", config_name="conll_config")
 def test(cfg: DictConfig) -> None:
     ckpt_input = cfg.get("checkpoint_path")
     if not ckpt_input:

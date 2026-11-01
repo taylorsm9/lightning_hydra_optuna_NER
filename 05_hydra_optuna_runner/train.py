@@ -35,7 +35,7 @@ def build_callbacks(cb_cfg: DictConfig | ListConfig):
             callbacks.append(hydra.utils.instantiate(conf))
     return callbacks
 
-@hydra.main(version_base=None, config_path="config", config_name="gutbrain_config")
+@hydra.main(version_base=None, config_path="config", config_name="conll_config")
 def train(cfg: DictConfig) -> Optional[float]:
 
     # Set seed
