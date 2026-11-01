@@ -221,21 +221,17 @@ def tokenize_dataframe(df, label_idx, tokenizer, max_length) -> pd.DataFrame:
             testmode=False (Bool): If false, make_tensor will return a tensor ready to be used for training. If true, make_tensor will return a dataframe of 20 samples, so an inspector can review or validate functionality with ease.
     """
 
-    def expand_encode_labels(labels, offset_mapping):
+    def expand_encode_labels(labels, word_ids):
+        # word_ids() gives each token the index of the word it came from, or None for special/pad tokens.
+        # (The original version counted words by offset[0] == 0, which crashed when a tokenizer emitted two
+        # tokens starting at offset 0 for one word, e.g. DeBERTa-v3 on "Gurion" or ModernBERT on "Çağrı".)
         expanded_labels = []
-        word_index = 0
-
-        for offset in offset_mapping:
-            if offset == (0, 0):  # Special tokens like [CLS], [SEP]
+        for word_index in word_ids:
+            if word_index is None:  # Special tokens like [CLS], [SEP]
                 expanded_labels.append(label_idx["O"])  # Ignored during loss computation
             else:
                 # Assign the label of the current word to its tokens
-                if offset[0] == 0:
-                    expanded_labels.append(label_idx[labels[word_index]])
-                    word_index += 1
-                else:
-                    expanded_labels.append(label_idx[labels[word_index - 1]])
-            # Move to the next word label only at new word boundaries
+                expanded_labels.append(label_idx[labels[word_index]])
 
         return expanded_labels
 
@@ -246,8 +242,7 @@ def tokenize_dataframe(df, label_idx, tokenizer, max_length) -> pd.DataFrame:
         if not (len(encoded["input_ids"]) == len(encoded["attention_mask"]) == len(encoded["offset_mapping"])):
             print(row["Word"])
 
-        return encoded["input_ids"], encoded["attention_mask"], expand_encode_labels(row["Label"],
-                                                                                     encoded["offset_mapping"])
+        return encoded["input_ids"], encoded["attention_mask"], expand_encode_labels(row["Label"], encoded.word_ids())
 
 
     df[["token_ids", "attention_masks", "labels"]] = df.apply(lambda x: pd.Series(tokenize_row(tokenizer, x, max_length)), axis=1)

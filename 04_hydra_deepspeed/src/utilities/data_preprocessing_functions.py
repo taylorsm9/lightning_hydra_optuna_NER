@@ -211,21 +211,17 @@ def tokenize_dataframe(df, label_idx, tokenizer, max_length) -> pd.DataFrame:
     Returns a DataFrame with tokenization results.
     """
 
-    def expand_encode_labels(labels, offset_mapping):
+    def expand_encode_labels(labels, word_ids):
+        # word_ids() gives each token the index of the word it came from, or None for special/pad tokens.
+        # (The original version counted words by offset[0] == 0, which crashed when a tokenizer emitted two
+        # tokens starting at offset 0 for one word, e.g. DeBERTa-v3 on "Gurion" or ModernBERT on "Çağrı".)
         expanded_labels = []
-        word_index = 0
-
-        for offset in offset_mapping:
-            if offset == (0, 0):  # Special tokens like [CLS], [SEP]
+        for word_index in word_ids:
+            if word_index is None:  # Special tokens like [CLS], [SEP]
                 expanded_labels.append(label_idx["O"])  # Ignored during loss computation
             else:
                 # Assign the label of the current word to its tokens
-                if offset[0] == 0:
-                    expanded_labels.append(label_idx[labels[word_index]])
-                    word_index += 1
-                else:
-                    expanded_labels.append(label_idx[labels[word_index - 1]])
-            # Move to the next word label only at new word boundaries
+                expanded_labels.append(label_idx[labels[word_index]])
 
         return expanded_labels
     token_ids_list = []
@@ -246,7 +242,7 @@ def tokenize_dataframe(df, label_idx, tokenizer, max_length) -> pd.DataFrame:
             print(row["Word"])
 
         # Use existing expand_encode_labels function to map word labels to token labels
-        labels = expand_encode_labels(row["Label"], encoded["offset_mapping"])
+        labels = expand_encode_labels(row["Label"], encoded.word_ids())
 
         token_ids_list.append(encoded["input_ids"])
         attention_masks_list.append(encoded["attention_mask"])
