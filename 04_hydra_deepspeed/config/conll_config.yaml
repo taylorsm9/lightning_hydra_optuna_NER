@@ -21,7 +21,7 @@ hydra:
 # Global paths config
 paths:
   root_dir: ${hydra:runtime.cwd}
-  data_dir: ${paths.root_dir}/datasets/conll_2003
+  data_dir: ${paths.root_dir}/../datasets/conll_2003
   log_dir: ${paths.root_dir}/logs
   output_dir: ${paths.root_dir}/outputs
   checkpoint_dir: ${paths.log_dir}/checkpoints

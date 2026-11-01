@@ -61,9 +61,9 @@ trainer:
 data:
   class_path: CONLLDataModule
   init_args:
-    train_path: datasets/conll_2003/train.pkl
-    val_path: datasets/conll_2003/val.pkl
-    test_path: datasets/conll_2003/test.pkl
+    train_path: ../datasets/conll_2003/train.pkl
+    val_path: ../datasets/conll_2003/val.pkl
+    test_path: ../datasets/conll_2003/test.pkl
     batch_size: 1
     # fill_context: False
     remove_o: False
