@@ -1,3 +1,4 @@
+import sys
 import yaml
 import lightning.pytorch as pl
 from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
@@ -9,7 +10,9 @@ from src.datamodules.CONLL_data_module import CONLLDataModule
 
 if __name__ == "__main__":
 
-    with open('config/conll_2003/conll.yaml', 'r') as f:
+    # optional config path argument (used by the smoke test); defaults to the original hardcoded path
+    config_path = sys.argv[1] if len(sys.argv) > 1 else 'config/conll_2003/conll.yaml'
+    with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
 
     model_config = config['model']['init_args']
