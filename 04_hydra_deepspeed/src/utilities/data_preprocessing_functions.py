@@ -15,7 +15,7 @@ Functions:
 - run_data_preprocessing: Runs all the data preprocessing steps in order.
 
 Please refer to the function-specific docstrings for more detailed information on their implementation and usage.
-Authors: Scott, Osman, and Charles
+Authors: Scott, Osmon, and Charles
 Date: 10/19/2023
 
 """
