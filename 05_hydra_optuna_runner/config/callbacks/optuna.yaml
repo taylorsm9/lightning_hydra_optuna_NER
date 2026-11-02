@@ -4,7 +4,7 @@ lr_monitor:
 
 early_stopping:
   _target_: lightning.pytorch.callbacks.EarlyStopping
-  monitor: val_entity_f1
+  monitor: val_score
   patience: 9  # extra patient for optuna
   mode: max
   min_delta: 0.001

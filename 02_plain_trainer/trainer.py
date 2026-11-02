@@ -53,6 +53,7 @@ if __name__ == "__main__":
             'weight_decay': float(model_config['weight_decay']), # Convert to float
             'pct_start': float(model_config['pct_start']),     # Convert to float
             'flooding_val': float(model_config['flooding_val']), # Convert to float
+            'metric_level': model_config.get('metric_level', 'token'),
             'pred_output_path': model_config['pred_output_path'],
             'confusion_matrix_path': model_config['confusion_matrix_path'],
             'hidden_dropout_prob': float(model_config['hidden_dropout_prob']),     # Convert to float

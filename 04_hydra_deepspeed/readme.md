@@ -30,5 +30,6 @@ DeepSpeed directories; `test_after_fit` merges the best one into fp32 weights an
 
 ## Notes
 
+- `metric_level` (model setting) picks the F1 that checkpointing and Optuna use: `token` (default, `val_avg_f1`, credits partly found entities) or `entity` (`val_entity_f1`, exact CoNLL). Both are logged.
 - With the default `IOB: 0` the model predicts IO tags, so two adjacent entities of the same type can't be told apart, and entity F1 is computed against IO-converted gold labels (slightly optimistic). Set `IOB: 1` for exact CoNLL F1.
 - With `batch_size: 512` an epoch is only about 27 optimizer steps.

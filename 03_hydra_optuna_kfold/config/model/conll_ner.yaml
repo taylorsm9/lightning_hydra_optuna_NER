@@ -12,5 +12,6 @@ max_lr: 1e-4
 weight_decay: 0.01
 pct_start: 0.3
 flooding_val: 0.1
+metric_level: token  # F1 for checkpointing and Optuna: token (val_avg_f1, credits partial entities) or entity (exact CoNLL)
 pred_output_path: ${paths.output_dir}/test_preds/test_data.pkl
 confusion_matrix_path: ${paths.output_dir}/test_preds/confusion_matrix.csv

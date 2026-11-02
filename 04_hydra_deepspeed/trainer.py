@@ -20,7 +20,7 @@ def build_callbacks(callbacks_cfg: DictConfig) -> List:
     return callbacks
 
 
-def best_val_score(trainer, monitor="val_entity_f1"):
+def best_val_score(trainer, monitor="val_score"):
     """Best value of the monitored metric over the run, as tracked by ModelCheckpoint or EarlyStopping
     (the last epoch's value if neither tracks it). Optuna should compare trials by their best epoch."""
     for callback in trainer.callbacks:
@@ -53,7 +53,7 @@ def train(cfg: DictConfig) -> Optional[float]:
     # Train
     trainer.fit(model=model, datamodule=datamodule)
 
-    # Best validation entity F1 of the run, for hyperparameter optimization (it used to be the last epoch's)
+    # Best validation score of the run (model.metric_level picks token or entity F1), for hyperparameter optimization
     score = best_val_score(trainer)
 
     # Optionally evaluate the best checkpoint on the test set (off for sweeps; 5_fold.sh turns it on)

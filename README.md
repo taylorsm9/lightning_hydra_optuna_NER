@@ -34,8 +34,11 @@ loss-side options deal with that:
 - Label smoothing and loss flooding ([Ishida et al., 2020](https://arxiv.org/abs/2002.08709)) against overconfidence and overfitting.
 
 **Experiment tracking with Weights & Biases.** Every run logs training loss and learning rate per
-step, and each validation epoch the entity-level F1 (exact span and type, the standard CoNLL measure)
-plus per-class token precision, recall and F1. It also logs a confusion matrix
+step, and each validation epoch both token-level metrics (per-class precision, recall and F1 over each
+word's first token) and entity-level F1 (exact span and type, the standard CoNLL measure). The model
+setting `metric_level` picks which F1 checkpointing, early stopping and Optuna use: `token` (the default,
+`val_avg_f1`), which gives credit for partly found entities, often good enough downstream, or `entity`
+(`val_entity_f1`). The chosen one is also logged as `val_score`. Each run also logs a confusion matrix
 image every epoch, which `notebooks/confusion_matrix/confusion_matrix_gif.ipynb` turns into an animation
 of training. 05 also uploads each run's resolved Hydra config to W&B and groups Optuna trials in their own project.
 
@@ -152,7 +155,8 @@ and 05 drop the DeepSpeed strategy (their models then use torch's AdamW). On GPU
 A 5-epoch run of 01 (ModernBERT-large, default settings, batch 16 with 2-step accumulation on one RTX 4090)
 reaches entity-level F1 **95.9 on validation and 91.6 on test**, scored against the original IOB2 labels.
 (The model's own `test_entity_f1` reads 92.0; see the note below.) Large encoders typically reach about
-92-93 on the CoNLL-2003 test set; no hyperparameters were tuned for this run.
+92-93 on the CoNLL-2003 test set; no hyperparameters were tuned for this run, which selected its
+checkpoint by entity F1.
 
 With the default `IOB: 0` the model predicts IO tags, so two adjacent entities of the same type can't be
 told apart and the entity F1 is computed against IO-converted gold labels (slightly optimistic; about 0.1-0.7%

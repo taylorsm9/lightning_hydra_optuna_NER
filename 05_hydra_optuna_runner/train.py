@@ -38,7 +38,7 @@ def build_callbacks(cb_cfg: DictConfig | ListConfig):
     return callbacks
 
 
-def best_val_score(trainer, monitor="val_entity_f1"):
+def best_val_score(trainer, monitor="val_score"):
     """Best value of the monitored metric over the run, as tracked by ModelCheckpoint or EarlyStopping
     (the last epoch's value if neither tracks it). Optuna should compare trials by their best epoch."""
     for callback in trainer.callbacks:
@@ -77,7 +77,7 @@ def train(cfg: DictConfig) -> Optional[float]:
     # Train
     trainer.fit(model=model, datamodule=datamodule)
 
-    # Best validation entity F1 of the run (it used to be the last epoch's), printed for optuna_runner.py
+    # Best validation score of the run (model.metric_level picks token or entity F1), printed for optuna_runner.py
     score = float(best_val_score(trainer))
     print(f"Best Val Score: {score}")
     return score

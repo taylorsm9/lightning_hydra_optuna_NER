@@ -6,7 +6,7 @@ Part of [lightning_cli_ner](../README.md), an archived teaching project. Copied 
 
 The yaml is split into Hydra config groups (`config/model`, `datamodule`, `trainer`, `callbacks`,
 `logger`) composed by `config/conll_config.yaml`. `trainer.py` builds every object with
-`hydra.utils.instantiate` and returns the best `val_entity_f1`, which is what lets the Optuna sweeper plugin
+`hydra.utils.instantiate` and returns the run's best `val_score`, which is what lets the Optuna sweeper plugin
 use it as an objective (`config/hparams_search/optuna.yaml`).
 
 It also has a 5-fold ensemble:
@@ -31,5 +31,6 @@ this folder, then `ensemble_test.ipynb`.
 
 ## Notes
 
+- `metric_level` (model setting) picks the F1 that checkpointing and Optuna use: `token` (default, `val_avg_f1`, credits partly found entities) or `entity` (`val_entity_f1`, exact CoNLL). Both are logged.
 - With the default `IOB: 0` the model predicts IO tags, so two adjacent entities of the same type can't be told apart, and entity F1 is computed against IO-converted gold labels (slightly optimistic). Set `IOB: 1` for exact CoNLL F1.
 - The default `batch_size` is 1 (slow, but it fits any GPU); the sweep tries 1, 2 and 4.

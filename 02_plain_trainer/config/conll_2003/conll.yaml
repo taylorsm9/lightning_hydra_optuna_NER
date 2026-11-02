@@ -14,14 +14,14 @@ trainer:
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
-        monitor: val_entity_f1
+        monitor: val_score
         mode: max
         save_top_k: 1
         dirpath: ./logs/conll/checkpoints/
         save_last: true
         every_n_epochs: 1
         auto_insert_metric_name: true
-        filename: '{epoch}-{step}-{val_entity_f1:.4f}-{train_loss:.2f}'
+        filename: '{epoch}-{step}-{val_score:.4f}-{train_loss:.2f}'
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:
         logging_interval: step
@@ -87,6 +87,7 @@ model:
     weight_decay: 0.01
     pct_start: 0.3
     flooding_val: 0.1
+    metric_level: token # F1 for checkpointing: token (val_avg_f1, credits partial entities) or entity (exact CoNLL)
     # o_weight: 0.05
     # IOB: 0 # propagated from data args
     # num_labels: 22 # propagated from data args

@@ -73,7 +73,7 @@ class ModernBertLargeModel(nn.Module):
 class EncoderNERModel(LightningModule):
     def __init__(self, IOB, num_labels, batch_size, starting_lr, max_lr, weight_decay, pct_start, flooding_val,
                  pred_output_path, confusion_matrix_path, hidden_dropout_prob,
-                 attention_probs_dropout_prob, model_class):
+                 attention_probs_dropout_prob, model_class, metric_level="token"):
         super().__init__()
         self.IOB = IOB
         self.num_labels = num_labels + ((num_labels - 1) * self.IOB)
@@ -86,6 +86,11 @@ class EncoderNERModel(LightningModule):
         self.weight_decay = weight_decay
         self.pct_start = pct_start
         self.flooding_val = float(flooding_val)
+        # which F1 checkpointing, early stopping and Optuna use (logged as val_score/test_score; both are always logged):
+        # "token" = per-class F1 over labelled tokens, averaged (val_avg_f1; credits partly found entities),
+        # "entity" = exact entity span and type, the CoNLL measure (val_entity_f1)
+        assert metric_level in ("token", "entity"), metric_level
+        self.metric_level = metric_level
         self.class_weights = None
         self.test_data = []
         self.pred_output_path = pred_output_path
@@ -250,6 +255,7 @@ class EncoderNERModel(LightningModule):
         self.log(f'{stage}_entity_recall', recall, on_epoch=True, logger=True, sync_dist=True)
         for metric in counts.values():
             metric.reset()
+        return f1
 
     def validation_step(self, batch, batch_idx):
         input_ids, attention_mask, labels = batch
@@ -283,7 +289,9 @@ class EncoderNERModel(LightningModule):
         avg_f1 = f1_per_class.mean()
 
         self.log('val_avg_f1', avg_f1, on_epoch=True, prog_bar=True)
-        self.log_entity_f1(self.val_entity, 'val')
+        entity_f1 = self.log_entity_f1(self.val_entity, 'val')
+        self.log('val_score', entity_f1 if self.metric_level == "entity" else avg_f1, on_epoch=True, prog_bar=True,
+                 logger=True, sync_dist=True)
         self.log('valid_f1', self.val_f1_micro.compute(), on_epoch=True, prog_bar=True)
 
         # Log per class f1, precision, recall
@@ -338,7 +346,9 @@ class EncoderNERModel(LightningModule):
 
         # Log scores
         self.log('test_avg_f1', f1_per_class.mean(), on_epoch=True, prog_bar=True, logger=True)
-        self.log_entity_f1(self.test_entity, 'test')
+        entity_f1 = self.log_entity_f1(self.test_entity, 'test')
+        self.log('test_score', entity_f1 if self.metric_level == "entity" else f1_per_class.mean(), on_epoch=True,
+                 prog_bar=True, logger=True, sync_dist=True)
         self.log('test_f1_micro', self.test_f1_micro.compute(), on_epoch=True, prog_bar=True, logger=True)
 
         # Log per class F1 score, precision, and recall
