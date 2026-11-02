@@ -6,13 +6,15 @@ These functions are intended to be used to prepare and clean data for use in the
 Each function serves a specific purpose and contributes to the data preparation process. 
 
 Functions:
-- dir_to_df: Creates a dataframe from folder of raw data files.
 - remove_only_o_sentences: Removes sentences containing only "O" class labels.
-- add_sentence_numbers: Associates tokens with a sentence ID number.
-- map_labels: Builds a mapping between class labels and prediction indexes.
-- multi_sentence_BERT_preprocessing: Prepares data samples for use with BERT.
-- single_sentence_BERT_preprocessing: Prepares data samples for use with BERT.
-- run_data_preprocessing: Runs all the data preprocessing steps in order.
+- strip_iob_tags: Removes "B-"/"I-" prefixes from labels.
+- get_unique_list_labels: Lists the labels present in a DataFrame.
+- compute_effective_sample_weights / compute_class_weights: Class-balanced loss weights from the
+  "effective number of samples" (Cui et al., 2019).
+- get_label_idx / reorder_label_indices: Builds the mapping between class labels and prediction indexes.
+- tokenize_dataframe: Tokenizes each sentence and aligns word labels with tokens.
+- create_single_tensor: Turns the tokenized DataFrame into a dataset.
+- make_tensor: Runs the steps above for one data split.
 
 Please refer to the function-specific docstrings for more detailed information on their implementation and usage.
 Authors: Scott, Osmon, and Charles
@@ -29,7 +31,6 @@ from torch.utils.data import TensorDataset
 from tqdm import tqdm
 from collections import Counter
 
-import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 def remove_only_o_sentences(dataframe):
@@ -285,7 +286,11 @@ def make_tensor(data_path, label_idx, IOB, tokenizer, max_length, remove_o=False
 
     print("Labels present: ")
     print(get_unique_list_labels(data_df))
-    print("df items:", data_df.size)
+    print("sentences:", len(data_df))
+
+    unknown = set(get_unique_list_labels(data_df)) - set(label_idx)
+    if unknown:
+        raise ValueError(f"{data_path} has labels the training set doesn't: {sorted(unknown)}")
 
     tokenized_df = tokenize_dataframe(data_df, label_idx, tokenizer, max_length)
     tensor = create_single_tensor(tokenized_df)
