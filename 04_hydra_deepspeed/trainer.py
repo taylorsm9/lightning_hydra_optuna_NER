@@ -2,7 +2,8 @@ import os
 import hydra
 from omegaconf import DictConfig
 import lightning.pytorch as pl
-from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
+import torch
+from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor, EarlyStopping
 from lightning.pytorch.loggers import WandbLogger
 
 from typing import List, Optional
@@ -17,6 +18,17 @@ def build_callbacks(callbacks_cfg: DictConfig) -> List:
             callbacks.append(hydra.utils.instantiate(cb_conf))
 
     return callbacks
+
+
+def best_val_score(trainer, monitor="val_entity_f1"):
+    """Best value of the monitored metric over the run, as tracked by ModelCheckpoint or EarlyStopping
+    (the last epoch's value if neither tracks it). Optuna should compare trials by their best epoch."""
+    for callback in trainer.callbacks:
+        if isinstance(callback, ModelCheckpoint) and callback.monitor == monitor and callback.best_model_score is not None:
+            return callback.best_model_score
+        if isinstance(callback, EarlyStopping) and callback.monitor == monitor and torch.isfinite(callback.best_score):
+            return callback.best_score
+    return trainer.callback_metrics.get(monitor, None)
 
 
 @hydra.main(version_base=None, config_path="config", config_name="conll_config")
@@ -41,8 +53,8 @@ def train(cfg: DictConfig) -> Optional[float]:
     # Train
     trainer.fit(model=model, datamodule=datamodule)
 
-    # Get entity-level F1 for hyperparameter optimization (before testing replaces callback_metrics)
-    score = trainer.callback_metrics.get("val_entity_f1", None)
+    # Best validation entity F1 of the run, for hyperparameter optimization (it used to be the last epoch's)
+    score = best_val_score(trainer)
 
     # Optionally evaluate the best checkpoint on the test set (off for sweeps; 5_fold.sh turns it on)
     if cfg.get("test_after_fit"):

@@ -4,6 +4,8 @@ import lightning.pytorch as pl
 from pathlib import Path
 from typing import Optional
 from hydra.core.hydra_config import HydraConfig
+import torch
+from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 
 def log_hydra_config(logger):
     """Place .hydra/config.yaml in the *Files* tab of the current W&B run."""
@@ -35,6 +37,17 @@ def build_callbacks(cb_cfg: DictConfig | ListConfig):
             callbacks.append(hydra.utils.instantiate(conf))
     return callbacks
 
+
+def best_val_score(trainer, monitor="val_entity_f1"):
+    """Best value of the monitored metric over the run, as tracked by ModelCheckpoint or EarlyStopping
+    (the last epoch's value if neither tracks it). Optuna should compare trials by their best epoch."""
+    for callback in trainer.callbacks:
+        if isinstance(callback, ModelCheckpoint) and callback.monitor == monitor and callback.best_model_score is not None:
+            return callback.best_model_score
+        if isinstance(callback, EarlyStopping) and callback.monitor == monitor and torch.isfinite(callback.best_score):
+            return callback.best_score
+    return trainer.callback_metrics.get(monitor, None)
+
 @hydra.main(version_base=None, config_path="config", config_name="conll_config")
 def train(cfg: DictConfig) -> Optional[float]:
 
@@ -64,10 +77,9 @@ def train(cfg: DictConfig) -> Optional[float]:
     # Train
     trainer.fit(model=model, datamodule=datamodule)
 
-    # Get entity-level F1 for hyperparameter tuning and print for Optuna
-    score = trainer.callback_metrics.get("val_entity_f1", None)
-    score = float(score)
-    print(f"Last Epoch Val Score: {score}")
+    # Best validation entity F1 of the run (it used to be the last epoch's), printed for optuna_runner.py
+    score = float(best_val_score(trainer))
+    print(f"Best Val Score: {score}")
     return score
 
 if __name__ == "__main__":

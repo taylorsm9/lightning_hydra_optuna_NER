@@ -1,20 +1,21 @@
 import subprocess
+import sys
 import optuna
 import shlex
 import re
 from optuna.samplers import TPESampler
 
 def extract_score(stdout: str) -> float:
-    pattern = r"Last Epoch Val Score:\s*([0-9]*\.?[0-9]+)"
+    pattern = r"Best Val Score:\s*([0-9]*\.?[0-9]+)"
     for line in reversed(stdout.strip().splitlines()):
         match = re.search(pattern, line)
         if match:
             return float(match.group(1))
-    raise ValueError("No 'Last Val Epoch Score:' line found in stdout")
+    raise ValueError("No 'Best Val Score:' line found in stdout")
 
 def objective(trial: optuna.Trial) -> float:
     cmd = [
-        "python", "train.py", "logger=wandb_optuna", "callbacks=optuna", "+trainer.enable_checkpointing=False",
+        sys.executable, "train.py",  # the same interpreter/environment as this script "logger=wandb_optuna", "callbacks=optuna", "+trainer.enable_checkpointing=False",
         f"model.starting_lr={trial.suggest_float('model.starting_lr', 1e-6, 1e-5, log=True)}",
         f"model.max_lr={trial.suggest_float('model.max_lr', 5e-6, 1e-4, log=True)}",
         f"model.weight_decay={trial.suggest_float('model.weight_decay', 1e-5, 1e-2, log=True)}",

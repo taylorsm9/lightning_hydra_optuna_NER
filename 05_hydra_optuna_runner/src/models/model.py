@@ -307,7 +307,7 @@ class EncoderNERModel(LightningModule):
         self.val_recall(active_preds, active_labels)
         self.val_confusion_matrix.update(active_preds, active_labels)
 
-        # Gutbrain F1 ignores true positive O predictions but keeps FPs of both kinds
+        # Micro F1 that ignores true-negative O tokens (label and prediction both O) but keeps every error
         keep_mask = (active_labels != 0) | (active_preds != 0)
         if keep_mask.any():  # skip empty mini-batch
             self.val_f1_micro_no_o(
@@ -379,7 +379,7 @@ class EncoderNERModel(LightningModule):
         self.update_entity_counts(preds, labels, self.test_entity)
 
 
-        # Gutbrain F1 ignores true positive O predictions but keeps FPs of both kinds
+        # Micro F1 that ignores true-negative O tokens (label and prediction both O) but keeps every error
         keep_mask = (active_labels != 0) | (active_preds != 0)
         if keep_mask.any():  # skip empty mini-batch
             self.test_f1_micro_no_o(
