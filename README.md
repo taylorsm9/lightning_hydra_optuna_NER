@@ -14,6 +14,42 @@ The code in each folder is **kept as it was**, rough edges included. The only ch
 needed to make it run today (data paths, a few crash fixes), and each folder's README lists them.
 It's a record of how the systems were built, not a polished library.
 
+## What's in it
+
+Beyond the different training setups, every folder shares the same model and tooling:
+
+**Handling NER's long-tailed labels.** Most tokens are `O`, and some entity types are rare. Several
+loss-side options deal with that:
+- **Class-balanced weights** from the "effective number of samples"
+  ([Cui et al., CVPR 2019](https://arxiv.org/abs/1901.05555)). Cui et al. proposed this weighting for
+  long-tailed image classification. We adapted it to token-level NER, where the `O` class dominates, in
+  February 2025. Each entity class gets the weight `(1 - β) / (1 - βⁿ)`, where `n` is its token count
+  in the training set and `β` (default 0.99) is a hyperparameter. As `β` goes from 0 to 1 the weights shift from uniform toward inverse frequency, so `β`
+  tunes how hard rare classes are boosted. `O` gets the smallest entity weight. Turn it on with
+  `effective_sample_weights: true` (`compute_class_weights` in `src/utilities/data_preprocessing_functions.py`).
+- **`o_class_mod`** divides the `O` weight further, with or without class-balanced weights.
+- **Learned per-class logit scaling.** A trainable scale per class is added (as a log) to the logits
+  inside the loss, so the model learns its own adjustment for the class priors.
+- Label smoothing and loss flooding ([Ishida et al., 2020](https://arxiv.org/abs/2002.08709)) against overconfidence and overfitting.
+
+**Experiment tracking with Weights & Biases.** Every run logs training loss and learning rate per
+step, and per-class precision, recall and F1 each validation epoch. It also logs a confusion matrix
+image every epoch, which `notebooks/confusion_matrix/confusion_matrix_gif.ipynb` turns into an animation
+of training. 05 also uploads each run's resolved Hydra config to W&B and groups Optuna trials in their own project.
+
+**Configuration and overrides.** Every setting lives in config, not code, and can be overridden for one
+run without editing a file. In 01 that's LightningCLI flags (`--trainer.max_epochs 5`), with shared
+arguments linked so `batch_size` or `model_class` are set once for both data and model. In 03-05 it's
+Hydra config groups and overrides (`trainer.max_epochs=5`, `+hparams_search=optuna`). Both save the
+resolved config with every run.
+
+**Automated hyperparameter tuning with Optuna.** 03 and 04 run a TPE search through the Hydra Optuna
+sweeper: learning rates, weight decay, dropout, batch size, epochs. 05 drives Optuna from its own
+script, adds `β` and `o_class_mod` to the search, and uses early stopping within each trial.
+
+Training uses a one-cycle learning-rate schedule, bf16 mixed precision, gradient clipping, and either
+ModernBERT-large or DeBERTa-v3-large as the encoder (`model_class`).
+
 ## The folders
 
 | Folder | What it shows | Entry point | Config | From |
