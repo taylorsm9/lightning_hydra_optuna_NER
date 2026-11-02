@@ -8,7 +8,7 @@ This started as a single private repo where each git branch tried a different tr
 LightningCLI, a hand-built Trainer, Hydra configs, Optuna sweeps, a 5-fold ensemble, DeepSpeed.
 It was written in 2025 for students in a university NLP lab who were learning these tools. For this
 public version each branch has been copied into its own folder, so you can read and run the setups
-side by side without digging through git history. The original branches are kept as `archive/<branch>` tags.
+side by side without switching branches. The original branches are kept as `archive/<branch>` tags.
 
 ## What's in it
 
