@@ -33,8 +33,11 @@ class ModernBertLargeModel(nn.Module):
         super(ModernBertLargeModel, self).__init__()
         configuration = AutoConfig.from_pretrained('answerdotai/ModernBERT-large')
 
-        configuration.hidden_dropout_prob = hidden_dropout_prob
-        configuration.attention_probs_dropout_prob = attention_probs_dropout_prob
+        # ModernBERT names its dropouts differently from BERT/DeBERTa; setting hidden_dropout_prob and
+        # attention_probs_dropout_prob on its config (as this used to) did nothing
+        configuration.mlp_dropout = hidden_dropout_prob
+        configuration.embedding_dropout = hidden_dropout_prob
+        configuration.attention_dropout = attention_probs_dropout_prob
 
         self.modern_bert = ModernBertModel.from_pretrained('answerdotai/ModernBERT-large', config=configuration)
         self.linear = nn.Linear(self.modern_bert.config.hidden_size, num_labels)
