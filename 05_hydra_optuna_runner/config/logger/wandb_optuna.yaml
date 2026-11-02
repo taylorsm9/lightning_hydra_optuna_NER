@@ -1,7 +1,7 @@
 _target_: lightning.pytorch.loggers.WandbLogger
 
-project: gutbrain-optuna-train-platinum
+project: conll-optuna
 log_model: false
 save_dir: ${paths.log_dir}
 # name: optuna # keep random wandb names for fun
-group: optuna-gutbrain-train-pgs-new-f1
+group: optuna-conll

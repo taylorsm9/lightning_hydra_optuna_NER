@@ -41,6 +41,7 @@ Convert it first, as the docstring in `test.py` says.
 - `train.py` and `test.py` load `conll_config` (they pointed at the GutBrain config).
 - `config/model/conll_ner.yaml` gets `use_gradient_checkpointing: false`. The model requires the argument, and the config didn't set it.
 - `5_fold.sh` and `conll_folds.ipynb` use the new data path.
+- The W&B project, run and group names in `config/logger/` said `gutbrain`; they now say `conll`.
 - Notebook outputs were stripped (the code was copied from a local checkout).
 
 ## Known issues (not fixed)
@@ -56,7 +57,6 @@ Kept on purpose, pending a later review.
 - `remove_o: true` does nothing: `make_tensor` discards the result of `remove_only_o_sentences`.
 - `test_dataloader` uses `drop_last=True`, so the last partial batch of test sentences is skipped.
 - The DataLoaders hardcode `num_workers=8, persistent_workers=True`. Once during testing, the workers deadlocked in the sanity check; rerunning worked.
-- W&B project names still say `gutbrain` (`config/logger/*.yaml`).
 - `precision: 16-mixed` (fp16) here, while the model is cast to bf16.
 - `optuna_runner.py` scores each trial by its last epoch, not its best.
 - `bash_scripts/conll/5_fold.sh` calls `trainer.py`, which doesn't exist in this folder.
