@@ -7,45 +7,35 @@ from train import log_hydra_config, build_callbacks
 
 """
 USAGE
-python test.py +checkpoint_path=logs/checkpoints/last.ckpt/pytorch_model.bin
-Note that when using deepspeed, you must run zero_to_fp32.py (in checkpoint dir) to make checkpoints into a single file
+python test.py +checkpoint_path=logs/checkpoints/last.ckpt
+The checkpoint can be a Lightning .ckpt file, a plain state dict (pytorch_model.bin), or a DeepSpeed checkpoint
+directory, whose shards are merged into fp32 weights first (as zero_to_fp32.py in that directory would).
+Testing runs without DeepSpeed; inference fits on one GPU.
 
 """
 def _load_model(cfg: DictConfig, ckpt: Path):
-    """Instantiate the model and restore weights.
-
-    Handles three cases:
-    1. *ckpt* **directory** → return bare model, pass dir to Trainer so
-       DeepSpeed/Lightning restore.
-    2. *ckpt* **file** produced by *Lightning* (`*.ckpt`) → use
-       `load_from_checkpoint`.
-    3. *ckpt* **plain state‑dict* (`pytorch_model.bin`, `model.safetensors`, …)
-       → `torch.load` + `model.load_state_dict`.
-    """
+    """Instantiate the model and load the checkpoint's weights into it."""
     import torch
     model = hydra.utils.instantiate(cfg.model)
 
     if ckpt.is_dir():
-        return model, ckpt  # Trainer will handle DeepSpeed restore
-
-    # File path ------------------------------------------------------------
-    try:
-        # Case 2: Lightning .ckpt with metadata
-        model_cls = model.__class__
-        model = model_cls.load_from_checkpoint(str(ckpt), strict=False)
-        return model, None
-    except (KeyError, RuntimeError):
-        # Fall back to plain state‑dict
-        state_dict = torch.load(str(ckpt), map_location="cpu")
-        # If it’s a Lightning‑style dict, strip the wrapper
-        if "state_dict" in state_dict and all(not k.startswith("module.") for k in state_dict["state_dict"].keys()):
-            state_dict = state_dict["state_dict"]
-        missing, unexpected = model.load_state_dict(state_dict, strict=False)
-        if missing:
-            print("[warning] missing keys:", missing)
-        if unexpected:
-            print("[warning] unexpected keys:", unexpected)
-        return model, None
+        # Lightning can't restore a DeepSpeed ZeRO-3 directory for testing (DeepSpeed's inference engine has no
+        # _restore_from_bit16_weights), so merge the shards into fp32 weights
+        from deepspeed.utils.zero_to_fp32 import get_fp32_state_dict_from_zero_checkpoint
+        state_dict = get_fp32_state_dict_from_zero_checkpoint(str(ckpt))
+        state_dict = {k.removeprefix("_forward_module."): v for k, v in state_dict.items()}
+    else:
+        # A Lightning checkpoint keeps the weights under "state_dict"; a plain state dict is the weights.
+        # (load_from_checkpoint can't be used: the model doesn't save its constructor arguments.)
+        state_dict = torch.load(str(ckpt), map_location="cpu", weights_only=False)
+        state_dict = state_dict.get("state_dict", state_dict)
+    state_dict.pop("criterion.weight", None)  # the loss is rebuilt in setup() from the datamodule's class weights
+    missing, unexpected = model.load_state_dict(state_dict, strict=False)
+    if missing:
+        print("[warning] missing keys:", missing)
+    if unexpected:
+        print("[warning] unexpected keys:", unexpected)
+    return model
 
 
 @hydra.main(version_base=None, config_path="config", config_name="conll_config")
@@ -60,8 +50,8 @@ def test(cfg: DictConfig) -> None:
     # Data
     datamodule = hydra.utils.instantiate(cfg.datamodule)
 
-    # Model (handle file vs dir)
-    model, trainer_ckpt = _load_model(cfg, ckpt_path)
+    # Model with the checkpoint's weights
+    model = _load_model(cfg, ckpt_path)
 
     # Callbacks & logger
     callbacks = build_callbacks(cfg.callbacks)
@@ -69,6 +59,7 @@ def test(cfg: DictConfig) -> None:
 
     trainer: pl.Trainer = hydra.utils.instantiate(
         cfg.trainer,
+        strategy="auto",  # no DeepSpeed for testing
         callbacks=callbacks,
         logger=logger,
     )
@@ -76,7 +67,7 @@ def test(cfg: DictConfig) -> None:
     log_hydra_config(logger)
 
     # Test
-    results = trainer.test(model=model, datamodule=datamodule, ckpt_path=str(trainer_ckpt) if trainer_ckpt else None)
+    results = trainer.test(model=model, datamodule=datamodule)
 
     if results:
         print("Test metrics:")

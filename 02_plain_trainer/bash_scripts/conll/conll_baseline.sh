@@ -10,7 +10,7 @@
 #SBATCH --mail-type=ALL
 #SBATCH --output=conll_baseline.log
 
-python activate venv
-srun python main.py fit --config config/conll_2003/conll.yaml
+source venv/bin/activate  # your environment
+srun python trainer.py
 
 ## ** End Of SLURM Batch Commands **

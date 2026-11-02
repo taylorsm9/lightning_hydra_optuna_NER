@@ -246,9 +246,10 @@ class EncoderNERModel(LightningModule):
         precision = tp / n_pred.clamp(min=1)
         recall = tp / n_gold.clamp(min=1)
         f1 = 2 * precision * recall / (precision + recall).clamp(min=1e-12)
-        self.log(f'{stage}_entity_f1', f1, on_epoch=True, prog_bar=True, logger=True)
-        self.log(f'{stage}_entity_precision', precision, on_epoch=True, logger=True)
-        self.log(f'{stage}_entity_recall', recall, on_epoch=True, logger=True)
+        # the counts are already summed across devices; sync_dist only averages identical values
+        self.log(f'{stage}_entity_f1', f1, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log(f'{stage}_entity_precision', precision, on_epoch=True, logger=True, sync_dist=True)
+        self.log(f'{stage}_entity_recall', recall, on_epoch=True, logger=True, sync_dist=True)
         for metric in counts.values():
             metric.reset()
 

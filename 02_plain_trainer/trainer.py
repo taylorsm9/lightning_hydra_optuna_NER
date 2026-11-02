@@ -86,5 +86,5 @@ if __name__ == "__main__":
 
     trainer.fit(model, datamodule)
 
-    # TODO args for fit vs test, accept checkpoint in args, arg for config location
-    # We will never do this here, just leaving the note for the hydra version
+    # Evaluate the best checkpoint (by the ModelCheckpoint monitor) on the test set
+    trainer.test(model, datamodule, ckpt_path="best")

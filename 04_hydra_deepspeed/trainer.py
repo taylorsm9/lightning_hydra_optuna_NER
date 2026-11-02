@@ -1,3 +1,4 @@
+import os
 import hydra
 from omegaconf import DictConfig
 import lightning.pytorch as pl
@@ -40,8 +41,26 @@ def train(cfg: DictConfig) -> Optional[float]:
     # Train
     trainer.fit(model=model, datamodule=datamodule)
 
-    # Get entity-level F1 for hyperparameter optimization
+    # Get entity-level F1 for hyperparameter optimization (before testing replaces callback_metrics)
     score = trainer.callback_metrics.get("val_entity_f1", None)
+
+    # Optionally evaluate the best checkpoint on the test set (off for sweeps; 5_fold.sh turns it on)
+    if cfg.get("test_after_fit"):
+        best = trainer.checkpoint_callback.best_model_path
+        if os.path.isdir(best):
+            # DeepSpeed ZeRO-3 saves a directory of shards, which Lightning can't restore for testing (DeepSpeed's
+            # inference engine has no _restore_from_bit16_weights). Merge the shards into fp32 weights, load them
+            # into a fresh model and test without DeepSpeed; inference fits on one GPU.
+            from deepspeed.utils.zero_to_fp32 import get_fp32_state_dict_from_zero_checkpoint
+            state_dict = get_fp32_state_dict_from_zero_checkpoint(best)
+            state_dict = {k.removeprefix("_forward_module."): v for k, v in state_dict.items()}
+            state_dict.pop("criterion.weight", None)  # the loss is rebuilt in setup()
+            model = hydra.utils.instantiate(cfg.model)
+            model.load_state_dict(state_dict, strict=False)
+            trainer = hydra.utils.instantiate(cfg.trainer, strategy="auto", callbacks=[], logger=logger)
+            trainer.test(model=model, datamodule=datamodule)
+        else:
+            trainer.test(model=model, datamodule=datamodule, ckpt_path=best)
 
     return score
 

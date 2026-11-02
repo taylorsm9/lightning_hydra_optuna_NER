@@ -18,6 +18,9 @@ hydra:
   job:
     num: 0  # Default job number
 
+# Evaluate the best checkpoint on the test set after training (writes model.pred_output_path)
+test_after_fit: false
+
 # Global paths config
 paths:
   root_dir: ${hydra:runtime.cwd}

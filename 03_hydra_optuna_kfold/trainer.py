@@ -40,8 +40,12 @@ def train(cfg: DictConfig) -> Optional[float]:
     # Train
     trainer.fit(model=model, datamodule=datamodule)
 
-    # Get entity-level F1 for hyperparameter optimization
+    # Get entity-level F1 for hyperparameter optimization (before testing replaces callback_metrics)
     score = trainer.callback_metrics.get("val_entity_f1", None)
+
+    # Optionally evaluate the best checkpoint on the test set (off for sweeps; 5_fold.sh turns it on)
+    if cfg.get("test_after_fit"):
+        trainer.test(model=model, datamodule=datamodule, ckpt_path="best")
 
     return score
 
