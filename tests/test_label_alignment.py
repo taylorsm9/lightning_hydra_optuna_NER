@@ -1,11 +1,14 @@
 """
-Regression test for the one behavior-preserving crash fix in every folder's preprocessing.
+Regression test for how every folder's preprocessing aligns word labels with subword tokens.
 
 The original expand_encode_labels counted words by `offset[0] == 0` and crashed with IndexError when a
 tokenizer gave one word two tokens starting at offset 0 (DeBERTa-v3 on "Gurion", "bacillus", "ASIAN", ...;
-ModernBERT on "Çağrı"). The fix uses encoding.word_ids(). This test checks that the fixed code
-  1. doesn't crash on the fixture sentences that used to crash, and
-  2. gives exactly the labels the original code gave on every sentence the original code could handle.
+ModernBERT on "Çağrı"). It also labelled padding and special tokens "O" and gave every subword its word's
+label. The fixed version uses encoding.word_ids() and labels only each word's first token. This test checks,
+for every folder and both tokenizers, that
+  1. nothing crashes on the fixture sentences, which are built to crash the original logic,
+  2. each word's first token carries the word's label, and
+  3. every other token (special, padding, rest of a word) is -100.
 
 Needs the two tokenizers (downloaded on first run). Run from the repo root: pytest tests/
 """
@@ -34,7 +37,7 @@ def load_preprocessing(folder):
 
 
 def original_expand_encode_labels(labels, offset_mapping):
-    """The pre-fix logic, verbatim apart from taking label_idx from the module scope."""
+    """The original logic, verbatim apart from taking label_idx from the module scope."""
     expanded_labels = []
     word_index = 0
     for offset in offset_mapping:
@@ -62,7 +65,7 @@ def tokenizer(request):
 
 
 @pytest.mark.parametrize("folder", FOLDERS)
-def test_alignment_fixed_and_unchanged(folder, tokenizer, fixture_df):
+def test_first_subword_labels(folder, tokenizer, fixture_df):
     module = load_preprocessing(folder)
     result = module.tokenize_dataframe(fixture_df.copy(), LABEL_IDX, tokenizer, 512)
 
@@ -70,17 +73,22 @@ def test_alignment_fixed_and_unchanged(folder, tokenizer, fixture_df):
     for (_, row), token_ids, labels in zip(fixture_df.iterrows(), result["token_ids"], result["labels"]):
         assert len(labels) == len(token_ids)
 
-        # same tokenizer call as the folder makes, to compare against the original logic
+        # same tokenizer call as the folder makes, to get word_ids and to run the original logic
         padded = "padding=\"max_length\"" in Path(module.__file__).read_text()
         kwargs = dict(padding="max_length", max_length=512) if padded else dict(max_length=512)
         enc = tokenizer(row["Word"], is_split_into_words=True, truncation=True, return_offsets_mapping=True, **kwargs)
+
+        expected, previous = [], None
+        for w in enc.word_ids():
+            expected.append(-100 if w is None or w == previous else LABEL_IDX[row["Label"][w]])
+            previous = w
+        assert labels == expected, " ".join(row["Word"])
+        assert sum(l != -100 for l in labels) == len(row["Word"])  # one labelled token per word (no truncation here)
+
         try:
-            expected = original_expand_encode_labels(row["Label"], [tuple(o) for o in enc["offset_mapping"]])
+            original_expand_encode_labels(row["Label"], [tuple(o) for o in enc["offset_mapping"]])
         except IndexError:
             crashed_before += 1
-            # where the old code crashed, the fix must give each word's tokens that word's label
-            expected = [LABEL_IDX["O"] if w is None else LABEL_IDX[row["Label"][w]] for w in enc.word_ids()]
-        assert labels == expected, " ".join(row["Word"])
 
-    # the fixture is built to hit the old crash with both tokenizers
+    # the fixture is built to hit the original crash with both tokenizers
     assert crashed_before > 0

@@ -215,13 +215,18 @@ def tokenize_dataframe(df, label_idx, tokenizer, max_length) -> pd.DataFrame:
         # word_ids() gives each token the index of the word it came from, or None for special/pad tokens.
         # (The original version counted words by offset[0] == 0, which crashed when a tokenizer emitted two
         # tokens starting at offset 0 for one word, e.g. DeBERTa-v3 on "Gurion" or ModernBERT on "Çağrı".)
+        # Only the first token of each word carries the word's label. Special tokens, padding and the rest of
+        # a word's tokens get -100, which the loss (ignore_index=-100) and the metrics skip. (The original
+        # labelled all of them, including padding, as "O" or the word's label, so most of each loss was
+        # padding and the metrics counted every subword.)
         expanded_labels = []
+        previous_word_index = None
         for word_index in word_ids:
-            if word_index is None:  # Special tokens like [CLS], [SEP]
-                expanded_labels.append(label_idx["O"])  # Ignored during loss computation
+            if word_index is None or word_index == previous_word_index:
+                expanded_labels.append(-100)
             else:
-                # Assign the label of the current word to its tokens
                 expanded_labels.append(label_idx[labels[word_index]])
+            previous_word_index = word_index
 
         return expanded_labels
     token_ids_list = []

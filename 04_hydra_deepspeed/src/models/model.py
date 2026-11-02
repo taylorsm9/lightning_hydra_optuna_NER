@@ -204,12 +204,13 @@ class EncoderNERModel(LightningModule):
         # Update validation metrics
         preds = torch.argmax(logits, dim=-1)
 
-        # Create flattened masks to identify real tokens
-        flat_attention_mask = attention_mask.view(-1) == 1
+        # Score only labelled tokens (each word's first token); padding, special tokens and the rest of
+        # each word are labelled -100
+        labeled = labels.view(-1) != -100
 
         # Apply the mask to get only the active tokens
-        active_labels = labels.view(-1)[flat_attention_mask]
-        active_preds = preds.view(-1)[flat_attention_mask]
+        active_labels = labels.view(-1)[labeled]
+        active_preds = preds.view(-1)[labeled]
 
         # Update metrics with the active tokens only
         self.val_f1(active_preds, active_labels)
@@ -254,13 +255,14 @@ class EncoderNERModel(LightningModule):
         logits = self(input_ids, attention_mask)
         preds = torch.argmax(logits, dim=-1)
 
-        # Create flattened masks to identify real tokens
-        flat_attention_mask = attention_mask.view(-1) == 1
+        # Score only labelled tokens (each word's first token); padding, special tokens and the rest of
+        # each word are labelled -100
+        labeled = labels.view(-1) != -100
 
         # Apply the mask to get only the active tokens
-        active_labels = labels.view(-1)[flat_attention_mask]
-        active_preds = preds.view(-1)[flat_attention_mask]
-        active_input_ids = input_ids.view(-1)[flat_attention_mask]
+        active_labels = labels.view(-1)[labeled]
+        active_preds = preds.view(-1)[labeled]
+        active_input_ids = input_ids.view(-1)[labeled]
 
         # Update metrics with the active tokens only
         self.test_f1.update(active_preds, active_labels)

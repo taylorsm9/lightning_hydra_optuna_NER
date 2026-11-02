@@ -200,11 +200,18 @@ class EncoderNERModel(LightningModule):
 
         # Update validation metrics
         preds = torch.argmax(logits, dim=-1)
-        self.val_f1(preds, labels)
-        self.val_f1_micro(preds, labels)
-        self.val_precision(preds, labels)
-        self.val_recall(preds, labels)
-        self.val_confusion_matrix.update(preds, labels)
+
+        # Score only labelled tokens (each word's first token); padding, special tokens and the rest of
+        # each word are labelled -100
+        labeled = labels.view(-1) != -100
+        active_labels = labels.view(-1)[labeled]
+        active_preds = preds.view(-1)[labeled]
+
+        self.val_f1(active_preds, active_labels)
+        self.val_f1_micro(active_preds, active_labels)
+        self.val_precision(active_preds, active_labels)
+        self.val_recall(active_preds, active_labels)
+        self.val_confusion_matrix.update(active_preds, active_labels)
         return {"valid_loss": val_loss}
 
     def on_validation_epoch_end(self):
@@ -241,9 +248,11 @@ class EncoderNERModel(LightningModule):
         logits = self(input_ids, attention_mask)
         preds = torch.argmax(logits, dim=-1)
 
-        active_labels = labels.view(-1)[attention_mask.view(-1) == 1]
-        active_preds = preds.view(-1)[attention_mask.view(-1) == 1]
-        active_input_ids = input_ids.view(-1)[attention_mask.view(-1) == 1]
+        # Score and save only labelled tokens (each word's first token), one row per word
+        labeled = labels.view(-1) != -100
+        active_labels = labels.view(-1)[labeled]
+        active_preds = preds.view(-1)[labeled]
+        active_input_ids = input_ids.view(-1)[labeled]
 
         self.test_f1.update(active_preds, active_labels)
         self.test_f1_micro.update(active_preds, active_labels)
