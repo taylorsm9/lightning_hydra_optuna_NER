@@ -1,6 +1,6 @@
 # 04 · Hydra + DeepSpeed ZeRO-3
 
-Part of [lightning_hydra_optuna_NER](../README.md), an archived teaching project. Copied from branch `lightning_hydra` (also tag `archive/lightning_hydra`).
+Part of [lightning_hydra_optuna_NER](../README.md), an archived teaching project. Copied from branch `lightning_hydra`.
 
 ## What it shows
 

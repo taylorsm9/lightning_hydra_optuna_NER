@@ -1,6 +1,6 @@
 # 01 · LightningCLI
 
-Part of [lightning_hydra_optuna_NER](../README.md), an archived teaching project. Copied from branch `master` (also tag `archive/master`).
+Part of [lightning_hydra_optuna_NER](../README.md), an archived teaching project. Copied from branch `master`.
 
 ## What it shows
 
