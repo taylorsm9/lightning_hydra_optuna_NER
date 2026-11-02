@@ -24,7 +24,8 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from get_conll import conll_to_df  # noqa: E402
 
 FOLDERS = sorted(p.name for p in ROOT.glob("0*_*") if p.is_dir())
-TOKENIZERS = ["microsoft/deberta-v3-large", "answerdotai/ModernBERT-large"]
+# created the way the datamodules create them
+TOKENIZERS = {"microsoft/deberta-v3-large": {}, "answerdotai/ModernBERT-large": {"add_prefix_space": True}}
 LABEL_IDX = {"O": 0, "PER": 1, "ORG": 2, "LOC": 3, "MISC": 4}
 
 
@@ -59,9 +60,9 @@ def fixture_df():
     return df
 
 
-@pytest.fixture(scope="module", params=TOKENIZERS)
+@pytest.fixture(scope="module", params=list(TOKENIZERS))
 def tokenizer(request):
-    return AutoTokenizer.from_pretrained(request.param, use_fast=True)
+    return AutoTokenizer.from_pretrained(request.param, use_fast=True, **TOKENIZERS[request.param])
 
 
 @pytest.mark.parametrize("folder", FOLDERS)

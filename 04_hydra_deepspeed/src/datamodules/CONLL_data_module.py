@@ -48,7 +48,11 @@ class CONLLDataModule(LightningDataModule):
         if self.model_class == "DeBERTaV3LargeModel":
             self.tokenizer = AutoTokenizer.from_pretrained("microsoft/deberta-v3-large", use_fast=True)
         elif self.model_class == "ModernBertLargeModel":
-            self.tokenizer = AutoTokenizer.from_pretrained('answerdotai/ModernBERT-large', use_fast=True)
+            # add_prefix_space: each pre-split word is tokenized as if preceded by a space, as it is in running
+            # text ("Ġlamb"). Without it, ModernBERT's byte-level BPE splits words into pieces it rarely saw
+            # in pretraining ("l" + "amb").
+            self.tokenizer = AutoTokenizer.from_pretrained('answerdotai/ModernBERT-large', use_fast=True,
+                                                           add_prefix_space=True)
 
         if self.IOB:
             label_idx = {'O': 0, 'B-PER': 1, 'I-PER': 2, 'B-ORG': 3, 'I-ORG': 4, 'B-LOC': 5, 'I-LOC': 6, 'B-MISC': 7,
