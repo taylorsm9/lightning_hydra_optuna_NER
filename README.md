@@ -1,8 +1,8 @@
 # lightning_cli_ner
 
-> **Historical teaching project, archived, not maintained.**
-> Each folder is a different way to train the same CoNLL-2003 named-entity-recognition model
-> (ModernBERT-large or DeBERTa-v3-large) with PyTorch Lightning.
+> Historical teaching project, archived and no longer maintained. Each folder trains the same CoNLL-2003
+> named-entity-recognition model (ModernBERT-large or DeBERTa-v3-large) with PyTorch Lightning, set up a
+> different way.
 
 This started as a single private repo where each git branch tried a different training setup:
 LightningCLI, a hand-built Trainer, Hydra configs, Optuna sweeps, a 5-fold ensemble, DeepSpeed.
@@ -10,50 +10,56 @@ It was written in 2025 for students in a university NLP lab who were learning th
 public version each branch has been copied into its own folder, so you can read and run the setups
 side by side without digging through git history. The original branches are kept as `archive/<branch>` tags.
 
-Each folder keeps what it was built to show: LightningCLI vs a hand-built Trainer vs Hydra, fixed vs
-dynamic padding, the Hydra sweeper vs a standalone Optuna runner.
-
 ## What's in it
 
-Beyond the different training setups, every folder shares the same model and tooling:
+Every folder shares the same model and tooling underneath the different training setups.
 
-**Handling NER's long-tailed labels.** Most tokens are `O`, and some entity types are rare. Several
-loss-side options deal with that:
-- **Class-balanced weights** from the "effective number of samples"
-  ([Cui et al., CVPR 2019](https://arxiv.org/abs/1901.05555)). Cui et al. proposed this weighting for
-  long-tailed image classification. We adapted it to token-level NER, where the `O` class dominates, in
-  March 2024, in an earlier group project on the ChEMU, TAC and CoNLL-2003 datasets.
-  Each entity class gets the weight `(1 - β) / (1 - βⁿ)`, where `n` is its token count in the training
-  set and `β` (default 0.99) is a hyperparameter. As `β` goes from 0 to 1 the weights shift from uniform
-  toward inverse frequency, so `β` tunes how hard rare classes are boosted. `O` gets the smallest entity
-  weight. Turn it on with `effective_sample_weights: true` (`compute_class_weights` in
-  `src/utilities/data_preprocessing_functions.py`).
-- **`o_class_mod`** divides the `O` weight further, with or without class-balanced weights.
-- **Learned per-class logit scaling.** A trainable scale per class is added (as a log) to the logits
-  inside the loss, so the model learns its own adjustment for the class priors.
-- Label smoothing and loss flooding ([Ishida et al., 2020](https://arxiv.org/abs/2002.08709)) against overconfidence and overfitting.
+### Long-tailed labels
 
-**Experiment tracking with Weights & Biases.** Every run logs training loss and learning rate per
-step, and each validation epoch both token-level metrics (per-class precision, recall and F1 over each
-word's first token) and entity-level F1 (exact span and type, the standard CoNLL measure). The model
-setting `metric_level` picks which F1 checkpointing, early stopping and Optuna use: `token` (the default,
-`val_avg_f1`), which gives credit for partly found entities, often good enough downstream, or `entity`
-(`val_entity_f1`). The chosen one is also logged as `val_score`. Each run also logs a confusion matrix
-image every epoch, which `notebooks/confusion_matrix/confusion_matrix_gif.ipynb` turns into an animation
-of training. 05 also uploads each run's resolved Hydra config to W&B and groups Optuna trials in their own project.
+Most tokens are `O`, and some entity types are rare, so the loss has several options for imbalance.
 
-**Configuration and overrides.** Every setting lives in config, not code, and can be overridden for one
-run without editing a file. In 01 that's LightningCLI flags (`--trainer.max_epochs 5`), with shared
-arguments linked so `batch_size` or `model_class` are set once for both data and model. In 03-05 it's
-Hydra config groups and overrides (`trainer.max_epochs=5`, `+hparams_search=optuna`), with the shared
-settings interpolated from the datamodule config into the model config. Both save the resolved config
-with every run.
+The main one is class-balanced weighting from the "effective number of samples"
+([Cui et al., CVPR 2019](https://arxiv.org/abs/1901.05555)). Cui et al. proposed it for long-tailed image
+classification. We adapted it to token-level NER, where the `O` class dominates, in March 2024, in an
+earlier group project on the ChEMU, TAC and CoNLL-2003 datasets. Each entity class gets the weight
+`(1 - β) / (1 - βⁿ)`, where `n` is its token count in the training set and `β` (default 0.99) is a
+hyperparameter. As `β` goes from 0 to 1 the weights move from uniform toward inverse frequency, so `β`
+sets how hard rare classes are boosted. `O` gets the smallest entity weight. Turn it on with
+`effective_sample_weights: true` (`compute_class_weights` in `src/utilities/data_preprocessing_functions.py`).
 
-**Automated hyperparameter tuning with Optuna.** 03 and 04 run a TPE search through the Hydra Optuna
-sweeper: learning rates, weight decay, dropout, batch size, epochs. 05 drives Optuna from its own
-script, adds `β` and `o_class_mod` to the search, and uses early stopping within each trial.
+`o_class_mod` divides the `O` weight further, with or without the class-balanced weights. The model also
+learns a scale per class, added as a log to the logits inside the loss, so it can adjust for the class
+priors itself. Label smoothing and loss flooding ([Ishida et al., 2020](https://arxiv.org/abs/2002.08709))
+guard against overconfidence and overfitting.
 
-Training uses a one-cycle learning-rate schedule, bf16 mixed precision, gradient clipping, and either
+### Logging with Weights & Biases
+
+Every run logs training loss and learning rate per step. Each validation epoch it logs token-level
+metrics (per-class precision, recall and F1 over each word's first token) and entity-level F1 (exact span
+and type, the standard CoNLL measure), plus a confusion matrix image that
+`notebooks/confusion_matrix/confusion_matrix_gif.ipynb` can turn into an animation of training. 05 also
+uploads each run's resolved Hydra config to W&B and puts Optuna trials in their own project.
+
+The model setting `metric_level` decides which F1 checkpointing, early stopping and Optuna use, and that
+one is also logged as `val_score`. The default, `token` (`val_avg_f1`), gives credit for partly found
+entities, which is often good enough for downstream tasks. `entity` (`val_entity_f1`) counts only exact
+matches.
+
+### Configuration and overrides
+
+Every setting lives in config, and any of them can be overridden for one run without editing a file. In
+01 that means LightningCLI flags (`--trainer.max_epochs 5`), with shared arguments linked so `batch_size`
+or `model_class` is set once for both data and model. In 03-05 it means Hydra config groups and overrides
+(`trainer.max_epochs=5`, `+hparams_search=optuna`), with the shared settings interpolated from the
+datamodule config into the model config. Both save the resolved config with every run.
+
+### Hyperparameter tuning with Optuna
+
+03 and 04 run a TPE search through the Hydra Optuna sweeper over learning rates, weight decay, dropout,
+batch size and epochs. 05 drives Optuna from its own script, adds `β` and `o_class_mod` to the search,
+and uses early stopping inside each trial.
+
+Training uses a one-cycle learning-rate schedule, bf16 mixed precision and gradient clipping, with either
 ModernBERT-large or DeBERTa-v3-large as the encoder (`model_class`).
 
 ## The folders
@@ -113,25 +119,27 @@ pip install -r requirements.txt
 python scripts/get_conll.py          # writes datasets/conll_2003/
 ```
 
-- **Weights & Biases.** Every folder logs to W&B. Either run `wandb login`, or set `WANDB_MODE=offline` to log locally.
-- **DeepSpeed (04, 05).** DeepSpeed compiles its CPU Adam optimizer the first time you run. It refuses to
-  if your installed CUDA toolkit (`nvcc`) has a different major version than the one torch was built with.
-  If you see that error, `DS_SKIP_CUDA_CHECK=1` worked for us. Keep `deepspeed==0.16.4`: 0.19.9 crashes
-  under ZeRO-3 with this model.
-- **GPU memory.** 01 trains with batch size 32 and every sentence padded to 512 tokens, which needs more
-  than 24 GB. On a 24 GB card use `--data.init_args.batch_size 16 --trainer.accumulate_grad_batches 2`
-  (the same effective batch). 02 and 03 default to batch size 1; 04 and 05 use dynamic padding and DeepSpeed offload.
-- **CPU only.** The full runs need a GPU. The smoke tests below run on CPU.
+Every folder logs to Weights & Biases, so run `wandb login` first, or set `WANDB_MODE=offline` to log
+locally.
+
+The full runs need a GPU; only the smoke tests below run on CPU. 01 trains with batch size 32 and pads
+every sentence to 512 tokens, which takes more than 24 GB. On a 24 GB card, use
+`--data.init_args.batch_size 16 --trainer.accumulate_grad_batches 2` for the same effective batch. 02 and
+03 default to batch size 1, and 04 and 05 get by with dynamic padding and DeepSpeed offload.
+
+DeepSpeed (04, 05) compiles its CPU Adam optimizer on the first run, and refuses to if your CUDA toolkit
+(`nvcc`) has a different major version than the one torch was built with. `DS_SKIP_CUDA_CHECK=1` got us
+past that. Keep `deepspeed==0.16.4`, because 0.19.9 crashes under ZeRO-3 with this model.
 
 ## The data
 
-CoNLL-2003 is derived from the Reuters RCV1 corpus and is **not redistributed in this repo**. See the
+CoNLL-2003 is derived from the Reuters RCV1 corpus and is not redistributed in this repo. See the
 [shared task page](https://www.clips.uantwerpen.be/conll2003/ner/) for its terms. `scripts/get_conll.py`
 downloads the public copy on the Hugging Face Hub
 ([`eriktks/conll2003`](https://huggingface.co/datasets/eriktks/conll2003)) and writes:
 
-- `datasets/conll_2003/{train,val,test}.conll`: tab-separated tag, `1`, `1`, word (IOB2 tags), with a blank line between sentences
-- `datasets/conll_2003/{train,val,test}.pkl`: one row per sentence, list columns `Word` and `Label`, which is what the datamodules read
+- `datasets/conll_2003/{train,val,test}.conll`, tab-separated tag, `1`, `1`, word (IOB2 tags), with a blank line between sentences
+- `datasets/conll_2003/{train,val,test}.pkl`, one row per sentence with list columns `Word` and `Label`, which the datamodules read
 
 The output matches the Hugging Face copy sentence for sentence (203,621 / 51,362 / 46,435 tokens). The
 2025 files, made by each folder's `notebooks/dataset_preprocessing/preprocess_conll.ipynb`, differed in two
@@ -153,14 +161,14 @@ and 05 drop the DeepSpeed strategy (their models then use torch's AdamW). On GPU
 ## Results
 
 A 5-epoch run of 01 (ModernBERT-large, default settings, batch 16 with 2-step accumulation on one RTX 4090)
-reaches entity-level F1 **95.9 on validation and 91.6 on test**, scored against the original IOB2 labels.
-(The model's own `test_entity_f1` reads 92.0; see the note below.) Large encoders typically reach about
-92-93 on the CoNLL-2003 test set; no hyperparameters were tuned for this run, which selected its
+reaches entity-level F1 of 95.9 on validation and 91.6 on test, scored against the original IOB2 labels.
+The model's own `test_entity_f1` reads 92.0, for the reason in the next paragraph. Large encoders
+typically reach about 92-93 on the CoNLL-2003 test set. Nothing was tuned for this run, and it picked its
 checkpoint by entity F1.
 
-With the default `IOB: 0` the model predicts IO tags, so two adjacent entities of the same type can't be
-told apart and the entity F1 is computed against IO-converted gold labels (slightly optimistic; about 0.1-0.7%
-of gold entities are affected). Set `IOB: 1` for exact CoNLL F1.
+With the default `IOB: 0` the model predicts IO tags, so it can't separate two adjacent entities of the
+same type, and its entity F1 compares against IO-converted gold labels. That makes it slightly optimistic;
+about 0.1-0.7% of gold entities are affected. Set `IOB: 1` for exact CoNLL F1.
 
 ## Credits
 

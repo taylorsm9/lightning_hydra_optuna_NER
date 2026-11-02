@@ -4,12 +4,11 @@ Part of [lightning_cli_ner](../README.md), an archived teaching project. Copied 
 
 ## What it shows
 
-03's Hydra setup (without the folds) plus two memory-saving changes:
-
-- **DeepSpeed ZeRO stage 3** with optimizer and parameter offload to the CPU (`config/trainer/default.yaml`),
-  using `DeepSpeedCPUAdam` as the optimizer. It's set up to fit a larger batch (512) on one GPU.
-- **Dynamic padding.** The datamodule's `collate_fn` pads each batch only to its longest sentence instead of
-  padding everything to 512 tokens, and pads labels with `-100` so the loss ignores them.
+03's Hydra setup, without the folds, plus two changes that save memory. The first is DeepSpeed ZeRO
+stage 3 with optimizer and parameter offload to the CPU (`config/trainer/default.yaml`) and
+`DeepSpeedCPUAdam` as the optimizer, set up to fit a batch of 512 on one GPU. The second is dynamic
+padding: the datamodule's `collate_fn` pads each batch only to its longest sentence instead of padding
+everything to 512 tokens, and pads labels with `-100` so the loss ignores them.
 
 `diff -r ../03_hydra_optuna_kfold/src src` shows exactly what those took.
 

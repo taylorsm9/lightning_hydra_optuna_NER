@@ -1,18 +1,20 @@
 # 05 · Hydra + separate train/test + Optuna runner
 
-Part of [lightning_cli_ner](../README.md), an archived teaching project. Copied from uncommitted local work (April 2025). It was never on a branch.
+Part of [lightning_cli_ner](../README.md), an archived teaching project. This is 04's setup as it stood in
+uncommitted local work in April 2025; it was never on a branch.
 
 ## What it shows
 
-04's setup, as it stood in April 2025 in uncommitted work that never made it to a branch:
+Training and testing are separate scripts. `test.py` takes `+checkpoint_path=`, which can be a Lightning
+`.ckpt`, a plain state dict or a DeepSpeed checkpoint directory, and both scripts upload the resolved Hydra
+config to W&B.
 
-- **Separate `train.py` and `test.py`.** `test.py` takes `+checkpoint_path=`: a Lightning `.ckpt`, a plain
-  state dict, or a DeepSpeed checkpoint directory. Both scripts upload the resolved Hydra config to W&B.
-- **`optuna_runner.py`** drives Optuna from a plain script. Each trial runs `train.py <overrides>` as a
-  subprocess and reads the score from its stdout. That replaces the Hydra sweeper plugin, which is
-  unmaintained and pins `optuna<3`.
-- **Gradient checkpointing** as a model option (`use_gradient_checkpointing`).
-- **`val_f1_micro_no_o`**, a micro-F1 that ignores tokens where both the label and the prediction are `O`.
+`optuna_runner.py` drives Optuna from a plain script instead of the Hydra sweeper plugin, which is
+unmaintained and pins `optuna<3`. Each trial runs `train.py <overrides>` as a subprocess and reads the
+score from its stdout.
+
+The model can also use gradient checkpointing (`use_gradient_checkpointing`), and it logs
+`val_f1_micro_no_o`, a micro-F1 that ignores tokens where both the label and the prediction are `O`.
 
 ## How to run
 
