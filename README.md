@@ -176,9 +176,6 @@ Written by scott ([@taylorsm9](https://github.com/taylorsm9)). Charles wrote the
 datamodule, Charles and Osmon worked on earlier versions of the model and preprocessing, and Ethan Leyden
 refactored some of the preprocessing functions.
 
-An unfinished experiment with a second dataset (GutBrainIE) is not included. It survives only in the git
-history and the `archive/gutbrain_dataloader` tag.
-
 ## License
 
 [MIT](LICENSE)
