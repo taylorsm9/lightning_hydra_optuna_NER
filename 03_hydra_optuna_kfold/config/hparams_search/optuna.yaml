@@ -30,4 +30,4 @@ hydra:
       trainer.max_epochs: choice(3, 5, 10)
 
 # Metric to be optimized
-optimized_metric: "val_avg_f1"
+optimized_metric: "val_entity_f1"

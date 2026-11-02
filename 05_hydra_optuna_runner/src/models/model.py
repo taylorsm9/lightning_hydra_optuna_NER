@@ -16,6 +16,28 @@ from torchmetrics.classification import MulticlassF1Score
 
 from deepspeed.ops.adam import DeepSpeedCPUAdam
 
+
+def entity_spans(tags, IOB):
+    """
+    Entity spans (start, end, type) in one sentence's label ids, for exact-match entity F1 (the standard
+    CoNLL measure). With IOB=1 the ids follow label_idx (1/2 = B-/I-PER, 3/4 = B-/I-ORG, ...), and a span
+    starts at a B- tag or at an I- tag that doesn't continue one. With IOB=0 the labels are IO tags, so a span
+    is a maximal run of one type; two adjacent entities of the same type count as one, for gold and
+    predictions alike, so scores are slightly optimistic. Use IOB=1 for exact CoNLL F1.
+    """
+    spans, start, span_type = set(), None, None
+    for i, tag in enumerate(list(tags) + [0]):
+        if IOB:
+            tag_type, begins = (tag + 1) // 2, tag % 2 == 1
+        else:
+            tag_type, begins = tag, False
+        if start is not None and (tag_type != span_type or begins):
+            spans.add((start, i, span_type))
+            start = None
+        if tag_type and start is None:
+            start, span_type = i, tag_type
+    return spans
+
 class DeBERTaV3LargeModel(nn.Module):
     def __init__(self, num_labels, hidden_dropout_prob=0.1, attention_probs_dropout_prob=0.1, use_gradient_checkpointing=False):
         super(DeBERTaV3LargeModel, self).__init__()
@@ -138,6 +160,10 @@ class EncoderNERModel(LightningModule):
             average="micro"
         )
 
+        # Entity-level counts for exact-match entity F1 (see entity_spans)
+        self.val_entity = nn.ModuleDict({k: torchmetrics.SumMetric() for k in ("tp", "pred", "gold")})
+        self.test_entity = nn.ModuleDict({k: torchmetrics.SumMetric() for k in ("tp", "pred", "gold")})
+
     def setup(self, stage=None):
         self.class_weights = self.trainer.datamodule.class_weights.clone().detach()
         print("class weights:")
@@ -223,6 +249,29 @@ class EncoderNERModel(LightningModule):
     #     self.train_precision.reset()
     #     self.train_recall.reset()
 
+    def update_entity_counts(self, preds, labels, counts):
+        # one sentence per row; its labelled tokens are its words, in order
+        tp = n_pred = n_gold = 0
+        for row_preds, row_labels in zip(preds, labels):
+            keep = row_labels != -100
+            gold = entity_spans(row_labels[keep].tolist(), self.IOB)
+            pred = entity_spans(row_preds[keep].tolist(), self.IOB)
+            tp, n_pred, n_gold = tp + len(gold & pred), n_pred + len(pred), n_gold + len(gold)
+        counts["tp"].update(tp)
+        counts["pred"].update(n_pred)
+        counts["gold"].update(n_gold)
+
+    def log_entity_f1(self, counts, stage):
+        tp, n_pred, n_gold = (counts[k].compute() for k in ("tp", "pred", "gold"))
+        precision = tp / n_pred.clamp(min=1)
+        recall = tp / n_gold.clamp(min=1)
+        f1 = 2 * precision * recall / (precision + recall).clamp(min=1e-12)
+        self.log(f'{stage}_entity_f1', f1, on_epoch=True, prog_bar=True, logger=True)
+        self.log(f'{stage}_entity_precision', precision, on_epoch=True, logger=True)
+        self.log(f'{stage}_entity_recall', recall, on_epoch=True, logger=True)
+        for metric in counts.values():
+            metric.reset()
+
     def validation_step(self, batch, batch_idx):
         input_ids, attention_mask, labels = batch
         logits = self(input_ids, attention_mask)
@@ -254,6 +303,7 @@ class EncoderNERModel(LightningModule):
                 active_labels[keep_mask]
             )
 
+        self.update_entity_counts(preds, labels, self.val_entity)
         return {"valid_loss": val_loss}
 
     def on_validation_epoch_end(self):
@@ -266,6 +316,7 @@ class EncoderNERModel(LightningModule):
         avg_f1 = f1_per_class.mean()
 
         self.log('val_avg_f1', avg_f1, on_epoch=True, prog_bar=True, sync_dist=True)
+        self.log_entity_f1(self.val_entity, 'val')
         self.log('valid_f1', self.val_f1_micro.compute(), on_epoch=True, prog_bar=True, sync_dist=True)
 
         # Log per class f1, precision, recall
@@ -313,6 +364,7 @@ class EncoderNERModel(LightningModule):
         self.test_precision.update(active_preds, active_labels)
         self.test_recall.update(active_preds, active_labels)
         self.test_confusion_matrix.update(active_preds, active_labels)
+        self.update_entity_counts(preds, labels, self.test_entity)
 
 
         # Gutbrain F1 ignores true positive O predictions but keeps FPs of both kinds
@@ -337,6 +389,7 @@ class EncoderNERModel(LightningModule):
 
         # Log scores
         self.log('test_avg_f1', f1_per_class.mean(), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log_entity_f1(self.test_entity, 'test')
         self.log('test_f1_micro', self.test_f1_micro.compute(), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         self.log("test_f1_micro_no_o",
                  self.test_f1_micro_no_o.compute(),

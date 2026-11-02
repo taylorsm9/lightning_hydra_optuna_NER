@@ -64,8 +64,8 @@ def train(cfg: DictConfig) -> Optional[float]:
     # Train
     trainer.fit(model=model, datamodule=datamodule)
 
-    # Get macro f1 for hyperparameter tuning and print for Optuna
-    score = trainer.callback_metrics.get("val_f1_micro_no_o", None)
+    # Get entity-level F1 for hyperparameter tuning and print for Optuna
+    score = trainer.callback_metrics.get("val_entity_f1", None)
     score = float(score)
     print(f"Last Epoch Val Score: {score}")
     return score

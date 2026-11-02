@@ -40,8 +40,8 @@ def train(cfg: DictConfig) -> Optional[float]:
     # Train
     trainer.fit(model=model, datamodule=datamodule)
 
-    # Get micro f1 for hyperparameter optimization
-    score = trainer.callback_metrics.get("val_avg_f1", None)
+    # Get entity-level F1 for hyperparameter optimization
+    score = trainer.callback_metrics.get("val_entity_f1", None)
 
     return score
 
