@@ -54,11 +54,9 @@ if [[ "$DEVICE" == gpu ]]; then
   run_04() { run_hydra 04_hydra_deepspeed trainer.py; }
   run_05() { run_hydra 05_hydra_optuna_runner train.py; }
 else
-  # On CPU the DeepSpeed pieces can't run: drop DeepSpeedStrategy and swap DeepSpeedCPUAdam for AdamW
-  # (see run_without_deepspeed_optim.py). Everything else in 04/05 runs as committed.
-  NO_DS="$ROOT/tests/smoke/run_without_deepspeed_optim.py"
-  run_04() { run_hydra 04_hydra_deepspeed "$NO_DS trainer.py" '~trainer.strategy'; }
-  run_05() { run_hydra 05_hydra_optuna_runner "$NO_DS train.py" '~trainer.strategy'; }
+  # DeepSpeed needs a GPU: on CPU drop the strategy, and the models fall back to torch's AdamW
+  run_04() { run_hydra 04_hydra_deepspeed trainer.py '~trainer.strategy'; }
+  run_05() { run_hydra 05_hydra_optuna_runner train.py '~trainer.strategy'; }
 fi
 
 folders=("$@")

@@ -14,7 +14,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from torchmetrics.classification import MulticlassF1Score
 
-from deepspeed.ops.adam import DeepSpeedCPUAdam
+from lightning.pytorch.strategies import DeepSpeedStrategy
 
 
 def entity_spans(tags, IOB):
@@ -178,9 +178,16 @@ class EncoderNERModel(LightningModule):
 
     def configure_optimizers(self):
         print("ESTIMATED STEPS:", self.trainer.estimated_stepping_batches)
-        optimizer = DeepSpeedCPUAdam(self.trainer.model.parameters(),
-                                     lr=self.starting_lr,
-                                     weight_decay=self.weight_decay)
+        if isinstance(self.trainer.strategy, DeepSpeedStrategy):
+            # ZeRO offload keeps the optimizer state on the CPU, where DeepSpeed's CPU Adam is much faster than
+            # torch's. Imported here so the folder runs without deepspeed installed when the strategy is removed.
+            from deepspeed.ops.adam import DeepSpeedCPUAdam
+            optimizer = DeepSpeedCPUAdam(self.trainer.model.parameters(),
+                                         lr=self.starting_lr,
+                                         weight_decay=self.weight_decay)
+        else:
+            optimizer = torch.optim.AdamW(self.trainer.model.parameters(), lr=self.starting_lr,
+                                          weight_decay=self.weight_decay)
 
         scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
                                                         max_lr=self.max_lr,
