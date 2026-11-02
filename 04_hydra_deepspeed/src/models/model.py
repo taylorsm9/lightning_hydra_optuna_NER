@@ -67,10 +67,10 @@ class EncoderNERModel(LightningModule):
 
         if model_class == "DeBERTaV3LargeModel":
             self.model = DeBERTaV3LargeModel(self.num_labels, self.hidden_dropout_prob,
-                                             self.attention_probs_dropout_prob).to(torch.bfloat16)
+                                             self.attention_probs_dropout_prob)
         elif model_class == "ModernBertLargeModel":
             self.model = ModernBertLargeModel(self.num_labels, self.hidden_dropout_prob,
-                                             self.attention_probs_dropout_prob).to(torch.bfloat16)
+                                             self.attention_probs_dropout_prob)
 
         # removed because we never looked at this
         # self.confusion_matrix_path = confusion_matrix_path

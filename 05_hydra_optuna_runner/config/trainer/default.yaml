@@ -2,7 +2,7 @@ _target_: lightning.pytorch.Trainer
 
 accelerator: gpu
 devices: auto
-precision: 16-mixed
+precision: bf16-mixed
 max_epochs: 20
 gradient_clip_val: 1.0
 accumulate_grad_batches: 1
