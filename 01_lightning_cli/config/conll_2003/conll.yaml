@@ -80,7 +80,7 @@ model:
   init_args:
     hidden_dropout_prob: .1
     attention_probs_dropout_prob: .1
-    pred_output_path: 'logs/conll/test_preds/test_data.csv'
+    pred_output_path: 'logs/conll/test_preds/test_data.pkl'
     confusion_matrix_path: 'logs/conll/test_preds/confusion_matrix.csv'
     starting_lr: 1e-5
     max_lr: 1e-4
