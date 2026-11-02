@@ -274,7 +274,7 @@ def make_tensor(data_path, label_idx, IOB, tokenizer, max_length, remove_o=False
         data_df = strip_iob_tags(data_df)
 
     if remove_o:
-        remove_only_o_sentences(data_df)
+        data_df = remove_only_o_sentences(data_df)  # (the result used to be discarded, so remove_o did nothing)
 
     print("Labels present: ")
     print(get_unique_list_labels(data_df))
