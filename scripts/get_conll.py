@@ -7,13 +7,11 @@ This script fetches a public copy from the Hugging Face Hub (eriktks/conll2003) 
     datasets/conll_2003/{train,val,test}.conll   tab-separated: tag, 1, 1, word (IOB2), blank line between sentences
     datasets/conll_2003/{train,val,test}.pkl     pandas DataFrame, one row per sentence, list columns Word and Label
 
-The .pkl files are what the datamodules read. Both are byte-for-byte / row-for-row identical to the
-files the project was trained on in 2025, including two quirks of the original pipeline:
-
-  - the .conll files escape double quotes as \\"
-  - the .pkl files were built with pandas.read_csv (see notebooks/dataset_preprocessing/preprocess_conll.ipynb),
-    which reads the words "NA" and "None" as missing values; dropna() then removed those tokens from 14 sentences.
-    Sentences are also ordered by their string id ("Sentence: 1", "Sentence: 10", ...), as groupby left them.
+The .pkl files are what the datamodules read. Every token is kept, in the dataset's sentence order. (The 2025
+files were built with pandas.read_csv in notebooks/dataset_preprocessing/preprocess_conll.ipynb, which reads the
+words "NA" and "None" as missing values; dropna() then removed those tokens from 14 sentences, and groupby
+sorted the sentences by their string id. Double quotes in the .conll files are still escaped as \\" so the
+notebook can read them.)
 
 Usage (from the repo root):
     python scripts/get_conll.py
@@ -29,22 +27,19 @@ SPLITS = {"train": "train", "val": "validation", "test": "test"}
 
 
 def conll_to_df(conll_path):
-    """Same steps as dir_to_df + add_sentence_numbers + groupby in preprocess_conll.ipynb."""
-    data = pd.read_csv(conll_path, sep="\t", encoding="utf-8", header=None, skip_blank_lines=False,
-                       names=["Label", "Start", "End", "Word"], escapechar="\\")
-    data = pd.concat([data, pd.DataFrame([[None] * 4], columns=data.columns)], ignore_index=True)
-
-    # a NaN Label marks a sentence break; row 0 always starts "Sentence: 1"
-    breaks = data["Label"].isna() & (data.index > 0)
-    data["Sentence #"] = "Sentence: " + (1 + breaks.cumsum()).astype(str)
-    data = data.dropna()
-
-    grouped = data.groupby("Sentence #").agg({"Label": list, "Start": list, "End": list, "Word": list})
-    df = grouped.reset_index()[["Word", "Label"]]
-    # plain object column labels: pandas 3 would otherwise store them as a pyarrow-backed string dtype,
-    # and the pickle would not load under pandas 2 (which the project used) without pyarrow installed
-    df.columns = pd.Index(["Word", "Label"], dtype=object)
-    return df
+    """One row per sentence of a .conll file written by this script, with list columns Word and Label."""
+    rows, words, labels = [], [], []
+    for line in Path(conll_path).read_text(encoding="utf-8").split("\n") + [""]:
+        if not line.strip():  # a blank line ends a sentence
+            if words:
+                rows.append((words, labels))
+            words, labels = [], []
+            continue
+        tag, _, _, word = line.split("\t", 3)
+        words.append(word.replace('\\"', '"'))
+        labels.append(tag)
+    # plain object column labels, so the pickle loads under pandas 2 (which the project used) and pandas 3
+    return pd.DataFrame(rows, columns=pd.Index(["Word", "Label"], dtype=object))
 
 
 def main():
