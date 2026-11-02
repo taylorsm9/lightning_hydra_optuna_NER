@@ -35,6 +35,7 @@ then run `bash bash_scripts/conll/5_fold.sh` from this folder.
 - **Crash fix, label alignment.** `expand_encode_labels` matched subword tokens to words by counting tokens whose character offset starts at 0. DeBERTa-v3 sometimes emits a standalone `▁` token that also starts at 0, so the count ran past the end of the sentence and raised `IndexError` (11 CoNLL sentences, e.g. ones containing `Gurion` or `bacillus`). Labels now come from the tokenizer's `word_ids()`. On every sentence that didn't crash, the labels are identical to before.
 - **Crash fix, metrics with `IOB: 1`.** The torchmetrics objects were sized with the raw `num_labels` (5) instead of the IOB-adjusted count (9), which crashed validation. With the default `IOB: 0` nothing changes.
 - **Crash fix, saving test predictions.** `test_preds/` is created if it doesn't exist. The original repo had it only because prediction files were committed.
+- `bash_scripts/conll/conll_baseline.sh`: the notes about the university's shared GPU cluster and its partition name were removed (`YOUR_PARTITION` is a placeholder), throughout the git history as well.
 - `conll_folds.ipynb` and `5_fold.sh` use the new data path.
 
 ## Known issues (not fixed)
