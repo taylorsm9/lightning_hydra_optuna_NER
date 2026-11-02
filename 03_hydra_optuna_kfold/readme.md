@@ -1,6 +1,6 @@
 # 03 · Hydra + Optuna sweeper + 5-fold ensemble
 
-Part of [lightning_cli_ner](../README.md), an archived teaching project. Copied from branch `lightning_hydra_ensemble` (also tag `archive/lightning_hydra_ensemble`).
+Part of [lightning_hydra_optuna_NER](../README.md), an archived teaching project. Copied from branch `lightning_hydra_ensemble` (also tag `archive/lightning_hydra_ensemble`).
 
 ## What it shows
 

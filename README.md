@@ -1,4 +1,4 @@
-# lightning_cli_ner
+# lightning_hydra_optuna_NER
 
 > Historical teaching project, archived and no longer maintained. Each folder trains the same CoNLL-2003
 > named-entity-recognition model (ModernBERT-large or DeBERTa-v3-large) with PyTorch Lightning, set up a

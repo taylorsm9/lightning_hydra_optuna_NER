@@ -1,6 +1,6 @@
 # 05 · Hydra + separate train/test + Optuna runner
 
-Part of [lightning_cli_ner](../README.md), an archived teaching project. This is 04's setup as it stood in
+Part of [lightning_hydra_optuna_NER](../README.md), an archived teaching project. This is 04's setup as it stood in
 uncommitted local work in April 2025; it was never on a branch.
 
 ## What it shows

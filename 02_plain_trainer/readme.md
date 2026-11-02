@@ -1,6 +1,6 @@
 # 02 · Plain Lightning Trainer
 
-Part of [lightning_cli_ner](../README.md), an archived teaching project. Copied from branch `lightning_trainer` (also tag `archive/lightning_trainer`).
+Part of [lightning_hydra_optuna_NER](../README.md), an archived teaching project. Copied from branch `lightning_trainer` (also tag `archive/lightning_trainer`).
 
 ## What it shows
 
