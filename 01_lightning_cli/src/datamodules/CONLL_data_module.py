@@ -25,7 +25,7 @@ from torch.utils.data import DataLoader
 
 class CONLLDataModule(LightningDataModule):
     def __init__(self, train_path, val_path, test_path, batch_size, num_labels, IOB, remove_o,
-                 o_class_mod, effective_sample_weights, beta, model_class, max_length):
+                 o_class_mod, effective_sample_weights, beta, model_class, max_length, num_workers=8):
         super().__init__()
         self.train_path = train_path
         self.val_path = val_path
@@ -42,6 +42,7 @@ class CONLLDataModule(LightningDataModule):
         self.effective_sample_weights = effective_sample_weights
         self.model_class = model_class
         self.max_length = max_length
+        self.num_workers = num_workers  # 0 loads batches in the main process
 
     def prepare_data(self):
 
@@ -78,17 +79,23 @@ class CONLLDataModule(LightningDataModule):
         self.val = make_tensor(self.val_path, label_idx, self.IOB, self.tokenizer, self.max_length,)
         self.test = make_tensor(self.test_path, label_idx, self.IOB, self.tokenizer, self.max_length,)
 
+    def _worker_kwargs(self):
+        if self.num_workers == 0:
+            return dict(num_workers=0)
+        return dict(num_workers=self.num_workers, prefetch_factor=2, persistent_workers=True)
+
     def train_dataloader(self):
         return DataLoader(self.train, batch_size=self.batch_size, shuffle=True,
-                          num_workers=8, prefetch_factor=2, drop_last=True,
-                          persistent_workers=True, pin_memory=True, )
+                          drop_last=True, **self._worker_kwargs(),
+                          pin_memory=True, )
 
     def val_dataloader(self):
+        # validation and test keep every sentence (drop_last=True used to skip the last partial batch)
         return DataLoader(self.val, batch_size=self.batch_size,
-                          num_workers=8, prefetch_factor=2, drop_last=True,
-                          persistent_workers=True, pin_memory=True, )
+                          drop_last=False, **self._worker_kwargs(),
+                          pin_memory=True, )
 
     def test_dataloader(self):
         return DataLoader(self.test, batch_size=self.batch_size,
-                          num_workers=8, prefetch_factor=2, drop_last=True,
-                          persistent_workers=True, pin_memory=True, )
+                          drop_last=False, **self._worker_kwargs(),
+                          pin_memory=True, )

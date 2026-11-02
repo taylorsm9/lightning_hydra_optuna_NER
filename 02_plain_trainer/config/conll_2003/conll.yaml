@@ -74,6 +74,7 @@ data:
     beta: .99 # for effective sample weight
     model_class: ModernBertLargeModel #DeBERTaV3LargeModel,ModernBertLargeModel
     max_length: 8000 # 512 or ??? big?
+    num_workers: 8 # DataLoader worker processes; 0 loads batches in the main process
 model:
   class_path: src.models.model.EncoderNERModel
   init_args:
