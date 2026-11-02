@@ -74,7 +74,7 @@ data:
     beta: .99 # for effective sample weight
     model_class: ModernBertLargeModel #DeBERTaV3LargeModel,ModernBertLargeModel
     max_length: 512 # every sentence is padded (and truncated) to this many tokens
-    num_workers: 8 # DataLoader worker processes; 0 loads batches in the main process
+    num_workers: 0 # DataLoader worker processes; 0 loads batches in the main process (the data is pre-tokenized)
 model:
   class_path: src.models.model.EncoderNERModel
   init_args:

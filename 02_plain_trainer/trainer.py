@@ -72,7 +72,7 @@ if __name__ == "__main__":
         'beta': data_config['beta'],
         'model_class': data_config['model_class'],
         'max_length': data_config['max_length'],
-        'num_workers': data_config.get('num_workers', 8),
+        'num_workers': data_config.get('num_workers', 0),
     }
 
     model = EncoderNERModel(**model_params)

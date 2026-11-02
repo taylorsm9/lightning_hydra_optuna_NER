@@ -20,12 +20,29 @@ from transformers import DebertaV2Tokenizer, AutoTokenizer
 from ..utilities.data_preprocessing_functions import *
 import os
 
+from functools import partial
+
 from torch.utils.data import DataLoader
+
+
+def pad_batch(batch, pad_token_id):
+    # A plain function, not a method, so spawned DataLoader workers can unpickle it without the datamodule
+    # Unpack the batch
+    input_ids, attention_masks, labels = zip(*batch)
+
+    # Pad sequences to the maximum length in this batch
+    # pad_sequence handles variable length sequences by padding to the max length in the batch
+    # pad with the tokenizer's pad id (0 is [PAD] for DeBERTa but a real token for ModernBERT, whose pad id is 50283)
+    padded_input_ids = torch.nn.utils.rnn.pad_sequence(input_ids, batch_first=True, padding_value=pad_token_id)
+    padded_attention_masks = torch.nn.utils.rnn.pad_sequence(attention_masks, batch_first=True, padding_value=0)
+    padded_labels = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True, padding_value=-100)
+
+    return padded_input_ids, padded_attention_masks, padded_labels
 
 
 class CONLLDataModule(LightningDataModule):
     def __init__(self, train_path, val_path, test_path, batch_size, num_labels, IOB, remove_o,
-                 o_class_mod, effective_sample_weights, beta, model_class, max_length, num_workers=8):
+                 o_class_mod, effective_sample_weights, beta, model_class, max_length, num_workers=0):
         super().__init__()
         self.train_path = train_path
         self.val_path = val_path
@@ -42,7 +59,9 @@ class CONLLDataModule(LightningDataModule):
         self.effective_sample_weights = effective_sample_weights
         self.model_class = model_class
         self.max_length = max_length
-        self.num_workers = num_workers  # 0 loads batches in the main process
+        # The datasets are already tokenized tensors in memory, so worker processes buy little; 0 (load in the main
+        # process) is the default. 8 forked workers used to deadlock now and then (fork after threads).
+        self.num_workers = num_workers
 
     def setup(self, stage=None):
         # Runs on every process. (This used to be prepare_data, which Lightning calls on the first process only,
@@ -83,36 +102,25 @@ class CONLLDataModule(LightningDataModule):
         self.val = make_tensor(self.val_path, label_idx, self.IOB, self.tokenizer, self.max_length,)
         self.test = make_tensor(self.test_path, label_idx, self.IOB, self.tokenizer, self.max_length,)
 
-    def collate_fn(self, batch):
-        # Unpack the batch
-        input_ids, attention_masks, labels = zip(*batch)
-
-        # Pad sequences to the maximum length in this batch
-        # pad_sequence handles variable length sequences by padding to the max length in the batch
-        # pad with the tokenizer's pad id (0 is [PAD] for DeBERTa but a real token for ModernBERT, whose pad id is 50283)
-        padded_input_ids = torch.nn.utils.rnn.pad_sequence(input_ids, batch_first=True,
-                                                           padding_value=self.tokenizer.pad_token_id)
-        padded_attention_masks = torch.nn.utils.rnn.pad_sequence(attention_masks, batch_first=True, padding_value=0)
-        padded_labels = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True, padding_value=-100)
-
-        return padded_input_ids, padded_attention_masks, padded_labels
     def _worker_kwargs(self):
         if self.num_workers == 0:
             return dict(num_workers=0)
-        return dict(num_workers=self.num_workers, prefetch_factor=2, persistent_workers=True)
+        # spawn starts each worker fresh, instead of forking a process whose other threads may hold locks
+        return dict(num_workers=self.num_workers, prefetch_factor=2, persistent_workers=True,
+                    multiprocessing_context="spawn")
 
     def train_dataloader(self):
         return DataLoader(self.train, batch_size=self.batch_size, shuffle=True,
                           drop_last=True, **self._worker_kwargs(),
-                          pin_memory=True, collate_fn=self.collate_fn)
+                          pin_memory=True, collate_fn=partial(pad_batch, pad_token_id=self.tokenizer.pad_token_id))
 
     def val_dataloader(self):
         # validation and test keep every sentence (drop_last=True used to skip the last partial batch)
         return DataLoader(self.val, batch_size=self.batch_size,
                           drop_last=False, **self._worker_kwargs(),
-                          pin_memory=True, collate_fn=self.collate_fn)
+                          pin_memory=True, collate_fn=partial(pad_batch, pad_token_id=self.tokenizer.pad_token_id))
 
     def test_dataloader(self):
         return DataLoader(self.test, batch_size=self.batch_size,
                           drop_last=False, **self._worker_kwargs(),
-                          pin_memory=True, collate_fn=self.collate_fn)
+                          pin_memory=True, collate_fn=partial(pad_batch, pad_token_id=self.tokenizer.pad_token_id))

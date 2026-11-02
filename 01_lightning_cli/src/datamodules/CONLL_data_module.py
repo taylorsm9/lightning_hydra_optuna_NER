@@ -25,7 +25,7 @@ from torch.utils.data import DataLoader
 
 class CONLLDataModule(LightningDataModule):
     def __init__(self, train_path, val_path, test_path, batch_size, num_labels, IOB, remove_o,
-                 o_class_mod, effective_sample_weights, beta, model_class, max_length, num_workers=8):
+                 o_class_mod, effective_sample_weights, beta, model_class, max_length, num_workers=0):
         super().__init__()
         self.train_path = train_path
         self.val_path = val_path
@@ -42,7 +42,9 @@ class CONLLDataModule(LightningDataModule):
         self.effective_sample_weights = effective_sample_weights
         self.model_class = model_class
         self.max_length = max_length
-        self.num_workers = num_workers  # 0 loads batches in the main process
+        # The datasets are already tokenized tensors in memory, so worker processes buy little; 0 (load in the main
+        # process) is the default. 8 forked workers used to deadlock now and then (fork after threads).
+        self.num_workers = num_workers
 
     def setup(self, stage=None):
         # Runs on every process. (This used to be prepare_data, which Lightning calls on the first process only,
@@ -86,7 +88,9 @@ class CONLLDataModule(LightningDataModule):
     def _worker_kwargs(self):
         if self.num_workers == 0:
             return dict(num_workers=0)
-        return dict(num_workers=self.num_workers, prefetch_factor=2, persistent_workers=True)
+        # spawn starts each worker fresh, instead of forking a process whose other threads may hold locks
+        return dict(num_workers=self.num_workers, prefetch_factor=2, persistent_workers=True,
+                    multiprocessing_context="spawn")
 
     def train_dataloader(self):
         return DataLoader(self.train, batch_size=self.batch_size, shuffle=True,
