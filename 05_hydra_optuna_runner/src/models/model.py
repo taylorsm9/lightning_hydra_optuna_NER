@@ -111,6 +111,10 @@ class EncoderNERModel(LightningModule):
                                              self.attention_probs_dropout_prob,
                                              self.use_gradient_checkpointing,)
 
+        # keep fp32 weights for the optimizer: transformers 5.x loads checkpoints in their saved dtype (fp16 for
+        # DeBERTa-v3); precision: bf16-mixed runs the forward pass in bf16
+        self.model = self.model.float()
+
         # removed because we never looked at this
         # self.confusion_matrix_path = confusion_matrix_path
 

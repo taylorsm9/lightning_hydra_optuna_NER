@@ -23,6 +23,8 @@ mkdir -p "$DATA" "$OUT"
 HYDRA_COMMON=(trainer.accelerator="$DEVICE" trainer.devices=1 trainer.max_epochs=1
               +trainer.limit_train_batches=2 +trainer.limit_val_batches=2 trainer.num_sanity_val_steps=0
               datamodule.batch_size=2 model.batch_size=2 paths.data_dir="$DATA")
+# CPU runs in full precision (bf16 autocast on CPU fails in DeBERTa's LayerNorm); GPU keeps each folder's setting
+[[ "$DEVICE" == cpu ]] && HYDRA_COMMON+=(trainer.precision=32)
 if [[ -n "${MODEL_CLASS:-}" ]]; then
   HYDRA_COMMON+=(datamodule.model_class="$MODEL_CLASS" model.model_class="$MODEL_CLASS")
 fi

@@ -16,6 +16,8 @@ with open(src) as f:
 
 cfg["trainer"].update(accelerator=device, devices=1, max_epochs=1, limit_train_batches=2, limit_val_batches=2,
                       num_sanity_val_steps=0, default_root_dir=out)
+if device == "cpu":
+    cfg["trainer"]["precision"] = 32  # bf16 autocast on CPU fails in DeBERTa's LayerNorm
 cfg["trainer"]["logger"]["init_args"]["save_dir"] = out
 for cb in cfg["trainer"]["callbacks"]:
     if "ModelCheckpoint" in cb["class_path"]:
