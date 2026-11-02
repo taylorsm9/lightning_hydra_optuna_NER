@@ -44,7 +44,11 @@ class CONLLDataModule(LightningDataModule):
         self.max_length = max_length
         self.num_workers = num_workers  # 0 loads batches in the main process
 
-    def prepare_data(self):
+    def setup(self, stage=None):
+        # Runs on every process. (This used to be prepare_data, which Lightning calls on the first process only,
+        # so with several GPUs the other processes had no datasets.)
+        if hasattr(self, "train"):  # already built (fit then test in one run)
+            return
 
         if self.model_class == "DeBERTaV3LargeModel":
             self.tokenizer = AutoTokenizer.from_pretrained("microsoft/deberta-v3-large", use_fast=True)
