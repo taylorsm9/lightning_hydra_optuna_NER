@@ -85,7 +85,9 @@ class CONLLDataModule(LightningDataModule):
 
         # Pad sequences to the maximum length in this batch
         # pad_sequence handles variable length sequences by padding to the max length in the batch
-        padded_input_ids = torch.nn.utils.rnn.pad_sequence(input_ids, batch_first=True, padding_value=0)
+        # pad with the tokenizer's pad id (0 is [PAD] for DeBERTa but a real token for ModernBERT, whose pad id is 50283)
+        padded_input_ids = torch.nn.utils.rnn.pad_sequence(input_ids, batch_first=True,
+                                                           padding_value=self.tokenizer.pad_token_id)
         padded_attention_masks = torch.nn.utils.rnn.pad_sequence(attention_masks, batch_first=True, padding_value=0)
         padded_labels = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True, padding_value=-100)
 

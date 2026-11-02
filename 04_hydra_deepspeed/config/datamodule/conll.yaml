@@ -11,5 +11,5 @@ num_labels: 5
 effective_sample_weights: false
 beta: 0.99
 model_class: ModernBertLargeModel
-max_length: 8000
+max_length: 8000  # truncation only; each batch is padded to its longest sentence
 num_workers: 8  # DataLoader worker processes; 0 loads batches in the main process

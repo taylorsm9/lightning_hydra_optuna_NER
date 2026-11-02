@@ -241,7 +241,7 @@ def tokenize_dataframe(df, label_idx, tokenizer, max_length) -> pd.DataFrame:
         return expanded_labels
 
     def tokenize_row(tokenizer, row, max_length):
-        encoded = tokenizer(row["Word"], is_split_into_words=True, padding="max_length", truncation=True, max_length=512, return_offsets_mapping=True)
+        encoded = tokenizer(row["Word"], is_split_into_words=True, padding="max_length", truncation=True, max_length=max_length, return_offsets_mapping=True)
 
         # print a row that has mismatched sequence lengths for tokenization, offset mapping, and attention mask
         if not (len(encoded["input_ids"]) == len(encoded["attention_mask"]) == len(encoded["offset_mapping"])):
