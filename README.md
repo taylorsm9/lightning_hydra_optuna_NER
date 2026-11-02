@@ -10,9 +10,8 @@ It was written in 2025 for students in a university NLP lab who were learning th
 public version each branch has been copied into its own folder, so you can read and run the setups
 side by side without digging through git history. The original branches are kept as `archive/<branch>` tags.
 
-The code in each folder is **kept as it was**, rough edges included. The only changes are the ones
-needed to make it run today (data paths, a few crash fixes), and each folder's README lists them.
-It's a record of how the systems were built, not a polished library.
+Each folder keeps what it was built to show: LightningCLI vs a hand-built Trainer vs Hydra, fixed vs
+dynamic padding, the Hydra sweeper vs a standalone Optuna runner.
 
 ## What's in it
 
@@ -35,15 +34,17 @@ loss-side options deal with that:
 - Label smoothing and loss flooding ([Ishida et al., 2020](https://arxiv.org/abs/2002.08709)) against overconfidence and overfitting.
 
 **Experiment tracking with Weights & Biases.** Every run logs training loss and learning rate per
-step, and per-class precision, recall and F1 each validation epoch. It also logs a confusion matrix
+step, and each validation epoch the entity-level F1 (exact span and type, the standard CoNLL measure)
+plus per-class token precision, recall and F1. It also logs a confusion matrix
 image every epoch, which `notebooks/confusion_matrix/confusion_matrix_gif.ipynb` turns into an animation
 of training. 05 also uploads each run's resolved Hydra config to W&B and groups Optuna trials in their own project.
 
 **Configuration and overrides.** Every setting lives in config, not code, and can be overridden for one
 run without editing a file. In 01 that's LightningCLI flags (`--trainer.max_epochs 5`), with shared
 arguments linked so `batch_size` or `model_class` are set once for both data and model. In 03-05 it's
-Hydra config groups and overrides (`trainer.max_epochs=5`, `+hparams_search=optuna`). Both save the
-resolved config with every run.
+Hydra config groups and overrides (`trainer.max_epochs=5`, `+hparams_search=optuna`), with the shared
+settings interpolated from the datamodule config into the model config. Both save the resolved config
+with every run.
 
 **Automated hyperparameter tuning with Optuna.** 03 and 04 run a TPE search through the Hydra Optuna
 sweeper: learning rates, weight decay, dropout, batch size, epochs. 05 drives Optuna from its own
@@ -72,8 +73,7 @@ diff -r 04_hydra_deepspeed/config 05_hydra_optuna_runner/config
 
 ### Same run, five ways
 
-Each of these trains on CoNLL-2003 with that folder's defaults (ModernBERT-large, except 05, whose model config
-says DeBERTa-v3-large; see its README). Run them from inside the folder.
+Each of these trains ModernBERT-large on CoNLL-2003 with that folder's defaults. Run them from inside the folder.
 
 ```bash
 cd 01_lightning_cli       && python main.py fit --config config/conll_2003/conll.yaml
@@ -115,6 +115,9 @@ python scripts/get_conll.py          # writes datasets/conll_2003/
   if your installed CUDA toolkit (`nvcc`) has a different major version than the one torch was built with.
   If you see that error, `DS_SKIP_CUDA_CHECK=1` worked for us. Keep `deepspeed==0.16.4`: 0.19.9 crashes
   under ZeRO-3 with this model.
+- **GPU memory.** 01 trains with batch size 32 and every sentence padded to 512 tokens, which needs more
+  than 24 GB. On a 24 GB card use `--data.init_args.batch_size 16 --trainer.accumulate_grad_batches 2`
+  (the same effective batch). 02 and 03 default to batch size 1; 04 and 05 use dynamic padding and DeepSpeed offload.
 - **CPU only.** The full runs need a GPU. The smoke tests below run on CPU.
 
 ## The data
@@ -127,10 +130,10 @@ downloads the public copy on the Hugging Face Hub
 - `datasets/conll_2003/{train,val,test}.conll`: tab-separated tag, `1`, `1`, word (IOB2 tags), with a blank line between sentences
 - `datasets/conll_2003/{train,val,test}.pkl`: one row per sentence, list columns `Word` and `Label`, which is what the datamodules read
 
-The output is identical to the files the project trained on in 2025, including two quirks of the
-original preprocessing: the words `NA` and `None` are missing from 14 sentences (pandas read them as
-missing values), and sentences are sorted by their string id. The notebook that made them is in each
-folder's `notebooks/dataset_preprocessing/preprocess_conll.ipynb`.
+The output matches the Hugging Face copy sentence for sentence (203,621 / 51,362 / 46,435 tokens). The
+2025 files, made by each folder's `notebooks/dataset_preprocessing/preprocess_conll.ipynb`, differed in two
+ways: pandas read the words `NA` and `None` as missing values and dropped them from 14 sentences, and the
+sentences were sorted by their string id.
 
 ## Tests
 
@@ -141,22 +144,19 @@ SMOKE_DEVICE=gpu bash tests/smoke/run_smoke.sh 04 05              # with each fo
 ```
 
 The smoke runs use 20 hand-written sentences (`tests/fixtures/tiny_ner.conll`), so they need no data
-download, only the encoder weights from the Hugging Face Hub. On CPU, 04 and 05 drop the DeepSpeed strategy
-and swap `DeepSpeedCPUAdam` for `AdamW`. On GPU everything runs as configured.
+download, only the encoder weights from the Hugging Face Hub. On CPU they run in full precision, and 04
+and 05 drop the DeepSpeed strategy (their models then use torch's AdamW). On GPU everything runs as configured.
 
-## Known issues
+## Results
 
-These are **not fixed**, on purpose. The code is kept as it was, and a later review will decide what to
-fix. Each folder's README has its own list.
+A 5-epoch run of 01 (ModernBERT-large, default settings, batch 16 with 2-step accumulation on one RTX 4090)
+reaches entity-level F1 **95.9 on validation and 91.6 on test**, scored against the original IOB2 labels.
+(The model's own `test_entity_f1` reads 92.0; see the note below.) Large encoders typically reach about
+92-93 on the CoNLL-2003 test set; no hyperparameters were tuned for this run.
 
-- **Scores are below published results.** A 5-epoch run of 01 reaches entity-level F1 91.8 on val and
-  87.6 on test, while large encoders typically reach about 92-93 on test. Suspected causes: the whole
-  model is cast to bfloat16 and trained that way, and in 01-03 padding tokens are labelled `O` and counted in the loss.
-- **The built-in metrics aren't CoNLL F1.** They are computed per subword token, include the `O` class,
-  and in 01-03 include padding, so they read much higher than standard entity-level F1.
-- With `is_split_into_words=True`, ModernBERT's tokenizer splits each word as if it had no leading space,
-  so the model sees word pieces it rarely saw in pretraining.
-- `test_dataloader` uses `drop_last=True`, so a few test sentences are skipped.
+With the default `IOB: 0` the model predicts IO tags, so two adjacent entities of the same type can't be
+told apart and the entity F1 is computed against IO-converted gold labels (slightly optimistic; about 0.1-0.7%
+of gold entities are affected). Set `IOB: 1` for exact CoNLL F1.
 
 ## Credits
 
