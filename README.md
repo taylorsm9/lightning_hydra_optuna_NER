@@ -23,10 +23,12 @@ loss-side options deal with that:
 - **Class-balanced weights** from the "effective number of samples"
   ([Cui et al., CVPR 2019](https://arxiv.org/abs/1901.05555)). Cui et al. proposed this weighting for
   long-tailed image classification. We adapted it to token-level NER, where the `O` class dominates, in
-  February 2025. Each entity class gets the weight `(1 - β) / (1 - βⁿ)`, where `n` is its token count
-  in the training set and `β` (default 0.99) is a hyperparameter. As `β` goes from 0 to 1 the weights shift from uniform toward inverse frequency, so `β`
-  tunes how hard rare classes are boosted. `O` gets the smallest entity weight. Turn it on with
-  `effective_sample_weights: true` (`compute_class_weights` in `src/utilities/data_preprocessing_functions.py`).
+  March 2024, in an earlier group project on the ChEMU, TAC and CoNLL-2003 datasets.
+  Each entity class gets the weight `(1 - β) / (1 - βⁿ)`, where `n` is its token count in the training
+  set and `β` (default 0.99) is a hyperparameter. As `β` goes from 0 to 1 the weights shift from uniform
+  toward inverse frequency, so `β` tunes how hard rare classes are boosted. `O` gets the smallest entity
+  weight. Turn it on with `effective_sample_weights: true` (`compute_class_weights` in
+  `src/utilities/data_preprocessing_functions.py`).
 - **`o_class_mod`** divides the `O` weight further, with or without class-balanced weights.
 - **Learned per-class logit scaling.** A trainable scale per class is added (as a log) to the logits
   inside the loss, so the model learns its own adjustment for the class priors.
